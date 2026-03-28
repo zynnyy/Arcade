@@ -1,4 +1,4 @@
-const CACHE = 'arcade-vault-v1';
+const CACHE = 'arcade-vault-v3';
 const ASSETS = ['.', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
