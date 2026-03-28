@@ -1584,22 +1584,22 @@ function resetDoodle(){
   const world=DL_WORLDS.find(w=>w.id===cLevel)||DL_WORLDS[0];
   const PLAT_W=80,PLAT_H=12;
   const plats=[];
-  // generate starting platforms
   for(let i=0;i<12;i++){
     plats.push({x:rnd(10,LW-PLAT_W-10),y:LH-80-i*80,w:PLAT_W,h:PLAT_H,type:'normal',vx:0,alive:true,bounced:false});
   }
   plats[0]={x:LW/2-PLAT_W/2,y:LH-80,w:PLAT_W,h:PLAT_H,type:'normal',vx:0,alive:true,bounced:false};
   dj={
     x:LW/2,y:LH-120,vx:0,vy:0,
-    plats,enemies:[],bullets:[],
+    plats,enemies:[],bullets:[],coins:[],
     scroll:0,maxScroll:0,
     tick:0,world,
     shootCool:0,
     facingR:true,
     squash:1,squashV:0,
     highestY:LH-120,
+    nextMilestone:500,
+    milestoneFlash:0,milestoneText:"",
   };
-  // initial bounce
   dj.vy=-18;
 }
 function djShift(d){if(phase==="playing")dj.vx=d*4.5;}
@@ -1654,24 +1654,37 @@ function tickDoodle(){
     const dy=camThreshold-dj.y;
     dj.y=camThreshold;dj.scroll+=dy;
     dj.maxScroll=Math.max(dj.maxScroll,dj.scroll);
-    // shift all entities down
     for(const p of dj.plats){p.y+=dy;}
     for(const e of dj.enemies){e.y+=dy;}
     for(const b of dj.bullets){b.y+=dy;}
+    for(const c of dj.coins){c.y+=dy;}
     setScore(Math.round(dj.maxScroll/10));
   }
 
-  // ── PLATFORM UPDATE ──
-  // spawn new platforms as old ones scroll off bottom
-  const topPlat=Math.min(...dj.plats.filter(p=>p.alive).map(p=>p.y));
-  while(topPlat+(dj.plats.length>50?9999:0)>-80&&dj.plats.length<18){
-    const lastY=Math.min(...dj.plats.map(p=>p.y));
-    const pType=Math.random()<0.55?'normal':Math.random()<0.5?'moving':Math.random()<0.6?'crumble':'spring';
-    dj.plats.push({x:rnd(10,LW-PLAT_W-10),y:lastY-rnd(70,110),w:PLAT_W,h:PLAT_H,type:pType,vx:pType==='moving'?(Math.random()<0.5?1.2:-1.2):0,alive:true,bounced:false});
+  // ── MILESTONE check ──
+  if(dj.maxScroll>=dj.nextMilestone){
+    const floor=Math.round(dj.nextMilestone/500);
+    dj.milestoneText=`FLOOR ${floor}!`;dj.milestoneFlash=90;
+    dj.nextMilestone+=500;haptic(20);SFX.score();
+    PARTS.emit(LW/2,LH/2,{n:22,type:'sparks',colors:[world.color,'#fff','#ffc107'],s0:4,s1:12});
+    sessionCoins+=2;
   }
-  // remove platforms that fell off bottom
+  if(dj.milestoneFlash>0)dj.milestoneFlash--;
+
+  // ── PLATFORM UPDATE ──
+  const topPlat=dj.plats.filter(p=>p.alive).reduce((m,p)=>Math.min(m,p.y),999);
+  while(topPlat>-80&&dj.plats.length<18){
+    const lastY=dj.plats.reduce((m,p)=>Math.min(m,p.y),999);
+    // platform type weighting changes with height
+    const h=dj.maxScroll;
+    const r=Math.random();
+    const pType=r<(h<300?0.65:h<800?0.45:0.3)?'normal':r<(h<300?0.80:0.62)?'moving':r<0.88?'crumble':'spring';
+    const pw=Math.max(55,80-h*0.01);// platforms narrow as you go higher
+    dj.plats.push({x:rnd(10,LW-pw-10),y:lastY-rnd(72,115),w:pw,h:PLAT_H,type:pType,vx:pType==='moving'?(Math.random()<0.5?1.4:-1.4):0,alive:true,bounced:false});
+    // 25% chance of a coin above new platform
+    if(Math.random()<0.25)dj.coins.push({x:dj.plats[dj.plats.length-1].x+pw/2,y:lastY-rnd(130,160),alive:true});
+  }
   dj.plats=dj.plats.filter(p=>p.y<LH+40);
-  // move moving platforms
   for(const p of dj.plats){
     if(p.type==='moving'){p.x+=p.vx;if(p.x<5||p.x>LW-p.w-5)p.vx*=-1;}
   }
@@ -1685,58 +1698,93 @@ function tickDoodle(){
       const inY=prevFoot<=p.y+4&&foot>=p.y;
       if(inX&&inY){
         dj.y=p.y-16;
-        if(p.type==='spring'){dj.vy=-28;dj.squashV=0.6;SFX.jump();PARTS.emit(dj.x,dj.y+16,{n:10,type:'sparks',colors:['#ffff00','#fff'],s0:3,s1:8});}
-        else{dj.vy=-16;dj.squashV=0.35;SFX.land();PARTS.emit(dj.x,dj.y+16,{n:4,type:'dust',s0:1,s1:3});}
-        if(p.type==='crumble'){p.bounced=true;setTimeout(()=>{p.alive=false;},200);}
-        haptic(8);
-        break;
+        if(p.type==='spring'){dj.vy=-30;dj.squashV=0.65;SFX.jump();PARTS.emit(dj.x,dj.y+16,{n:12,type:'sparks',colors:['#ffff00','#fff'],s0:3,s1:9});}
+        else{dj.vy=-17;dj.squashV=0.38;SFX.land();PARTS.emit(dj.x,dj.y+16,{n:5,type:'dust',s0:1,s1:3});}
+        if(p.type==='crumble'){p.bounced=true;setTimeout(()=>{p.alive=false;},220);}
+        haptic(8);break;
       }
     }
   }
 
-  // ── ENEMIES (blobs that drift down) ──
-  if(dj.tick%90===0&&dj.enemies.length<6){
-    dj.enemies.push({x:rnd(20,LW-20),y:-20,vy:0.7+Math.random()*0.6,alive:true,phase:Math.random()*Math.PI*2});
+  // ── COINS ──
+  for(const c of dj.coins){
+    if(!c.alive)continue;
+    if(Math.abs(dj.x-c.x)<16&&Math.abs(dj.y-c.y)<16){
+      c.alive=false;sessionCoins++;SFX.coin();haptic(6);
+      PARTS.emit(c.x,c.y,{n:8,type:'sparks',colors:['#ffc107','#fff'],s0:2,s1:5});
+    }
   }
-  for(const e of dj.enemies){e.y+=e.vy;e.x+=Math.sin(dj.tick*0.04+e.phase)*0.6;}
-  // bullet-enemy collision
+  dj.coins=dj.coins.filter(c=>c.alive&&c.y<LH+60);
+  // shift coins with scroll
+  // (coins are shifted in the scroll block above — need to add here)
+
+  // ── ENEMIES ──
+  const ENEMY_EMOJIS=[['🐛','🦋','🐝'],['🦎','🦜','🌿'],['👾','🛸','⚡']];
+  const eEmojis=ENEMY_EMOJIS[world.id-1]||ENEMY_EMOJIS[0];
+  if(dj.tick%85===0&&dj.enemies.length<5){
+    const etype=Math.floor(Math.random()*3);
+    dj.enemies.push({x:rnd(20,LW-20),y:-20,vy:0.8+Math.random()*0.7,alive:true,phase:Math.random()*Math.PI*2,type:etype,vdir:Math.random()<0.5?1:-1});
+  }
+  for(const e of dj.enemies){
+    e.y+=e.vy;
+    // different movement per type
+    if(e.type===0)e.x+=Math.sin(dj.tick*0.04+e.phase)*0.8;// caterpillar: wave
+    else if(e.type===1){e.x+=e.vdir*1.2;if(e.x<20||e.x>LW-20)e.vdir*=-1;}// side to side
+    else e.x+=Math.sin(dj.tick*0.08+e.phase)*1.8;// alien: fast zigzag
+  }
   for(const b of dj.bullets){
     for(const e of dj.enemies){
       if(!b.alive||!e.alive)continue;
-      if(Math.abs(b.x-e.x)<18&&Math.abs(b.y-e.y)<18){
+      if(Math.abs(b.x-e.x)<20&&Math.abs(b.y-e.y)<20){
         b.alive=false;e.alive=false;SFX.eat();
-        PARTS.emit(e.x,e.y,{n:14,type:'sparks',s0:2,s1:8,colors:[world.color,'#fff']});
-        setScore(score+3);
+        PARTS.emit(e.x,e.y,{n:16,type:'sparks',s0:2,s1:9,colors:[world.color,'#fff','#ffc107']});
+        setScore(score+3);sessionCoins++;
       }
     }
   }
-  // player-enemy collision
   for(const e of dj.enemies){
     if(!e.alive)continue;
-    if(Math.abs(dj.x-e.x)<22&&Math.abs(dj.y-e.y)<22){gameOver();return;}
+    if(Math.abs(dj.x-e.x)<20&&Math.abs(dj.y-e.y)<20){gameOver();return;}
   }
-  dj.enemies=dj.enemies.filter(e=>e.alive&&e.y<LH+40);
-  // update bullets
+  dj.enemies=dj.enemies.filter(e=>e.alive&&e.y<LH+50);
   for(const b of dj.bullets){b.y+=b.vy;}
   dj.bullets=dj.bullets.filter(b=>b.alive&&b.y>-20);
 
-  // ── GAME OVER: fell off bottom ──
+  // ── GAME OVER ──
   if(dj.y>LH+60){gameOver();return;}
 
   // ── DRAW PLATFORMS ──
   for(const p of dj.plats){
     if(!p.alive||p.y>LH+10)continue;
-    // top surface color
-    const pcol=p.type==='crumble'?'#8B5E3C':p.type==='spring'?'#ffee00':world.platCol;
-    const ptop=p.type==='crumble'?'#cc7733':p.type==='spring'?'#ffff88':world.platTop;
-    // glow on spring
-    if(p.type==='spring'){glow('#ffee00',10);}
-    CTX.fillStyle=pcol;rr(p.x,p.y,p.w,p.h,4);CTX.fill();
-    CTX.fillStyle=ptop;CTX.fillRect(p.x+2,p.y,p.w-4,3);
-    if(p.type==='spring'){
-      CTX.fillStyle='#cc8800';CTX.fillRect(p.x+p.w/2-5,p.y-7,10,8);
-      ng();
+    const pcol=p.type==='crumble'?'#6b3a1f':p.type==='spring'?'#886600':world.platCol;
+    const ptop=p.type==='crumble'?'#aa5522':p.type==='spring'?'#ffee00':world.platTop;
+    const psh=p.type==='spring'?'#ffee00':p.type==='moving'?world.color:null;
+    if(psh)glow(psh,8);
+    // platform body with rounded rect + shine
+    CTX.fillStyle=pcol;rr(p.x,p.y,p.w,p.h,5);CTX.fill();
+    // top strip
+    CTX.fillStyle=ptop+'ee';CTX.fillRect(p.x+3,p.y+1,p.w-6,3);
+    // crumble: crack lines
+    if(p.type==='crumble'&&!p.bounced){
+      CTX.strokeStyle='rgba(0,0,0,0.3)';CTX.lineWidth=1;
+      CTX.beginPath();CTX.moveTo(p.x+p.w*0.35,p.y);CTX.lineTo(p.x+p.w*0.4,p.y+p.h);CTX.stroke();
+      CTX.beginPath();CTX.moveTo(p.x+p.w*0.65,p.y);CTX.lineTo(p.x+p.w*0.6,p.y+p.h);CTX.stroke();
     }
+    // spring: coil graphic
+    if(p.type==='spring'){
+      CTX.strokeStyle='#ffdd00';CTX.lineWidth=2;
+      CTX.beginPath();for(let i=0;i<3;i++)CTX.arc(p.x+p.w/2,(p.y-3)-i*4,5-i,Math.PI,0,i%2===0);CTX.stroke();
+    }
+    ng();
+  }
+
+  // ── DRAW COINS ──
+  for(const c of dj.coins){
+    if(!c.alive)continue;
+    const cp=0.7+0.3*Math.sin(dj.tick*0.12+c.x);
+    glow('#ffc107',8*cp);
+    CTX.fillStyle='#ffc107';CTX.beginPath();CTX.arc(c.x|0,c.y|0,7,0,Math.PI*2);CTX.fill();
+    CTX.fillStyle='#ffdd44';CTX.beginPath();CTX.arc((c.x-2)|0,(c.y-2)|0,4,0,Math.PI*2);CTX.fill();
     ng();
   }
 
@@ -1744,17 +1792,18 @@ function tickDoodle(){
   for(const e of dj.enemies){
     if(!e.alive)continue;
     glow(world.color,12);
-    CTX.font='26px serif';CTX.textAlign='center';CTX.textBaseline='middle';
-    CTX.fillText(world.id===3?'👾':world.id===2?'🐛':'🐸',e.x|0,e.y|0);
+    CTX.font='24px serif';CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.fillText(eEmojis[e.type]||eEmojis[0],e.x|0,e.y|0);
     ng();
   }
 
   // ── DRAW BULLETS ──
   for(const b of dj.bullets){
     if(!b.alive)continue;
-    glow(world.color,8);
-    CTX.fillStyle=world.color;
-    CTX.beginPath();CTX.arc(b.x|0,b.y|0,5,0,Math.PI*2);CTX.fill();
+    glow(world.color,10);
+    const bg2=CTX.createRadialGradient(b.x|0,b.y|0,0,b.x|0,b.y|0,6);
+    bg2.addColorStop(0,'#fff');bg2.addColorStop(1,world.color);
+    CTX.fillStyle=bg2;CTX.beginPath();CTX.arc(b.x|0,b.y|0,5,0,Math.PI*2);CTX.fill();
     ng();
   }
 
@@ -1792,6 +1841,21 @@ function tickDoodle(){
   CTX.fillStyle=world.color;CTX.font='bold 11px "Exo 2",sans-serif';
   CTX.textAlign='left';CTX.textBaseline='middle';
   CTX.fillText(`⬆ ${score}`,16,22);
+  // coin count
+  CTX.fillStyle='rgba(0,0,0,0.3)';rr(LW-74,8,66,22,6);CTX.fill();
+  CTX.fillStyle='#ffc107';CTX.font='bold 10px "Exo 2",sans-serif';
+  CTX.textAlign='right';CTX.fillText(`🪙 ${sessionCoins}`,LW-10,19);
+  // milestone flash
+  if(dj.milestoneFlash>0){
+    const fa=Math.min(1,dj.milestoneFlash/20);
+    CTX.globalAlpha=fa;
+    CTX.fillStyle=world.color+'22';CTX.fillRect(0,0,LW,LH);
+    CTX.globalAlpha=fa;CTX.fillStyle='rgba(0,0,0,0.45)';rr(LW/2-70,LH/2-20,140,40,10);CTX.fill();
+    CTX.fillStyle=world.color;CTX.font='bold 15px "Exo 2",sans-serif';
+    CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.fillText(dj.milestoneText,LW/2,LH/2);
+    CTX.globalAlpha=1;
+  }
 }
 
 </script>
