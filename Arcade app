@@ -682,6 +682,7 @@ const SM={
 /* ── HITSTOP & SCORE ROLL state ── */
 let _hitStopFrames=0,_scoreDisplay=0,_scoreTarget=0,_lastFrameT=0;
 let _dyingFrames=0,_impactFlash=0,_goNewBest=false,_goBk='';
+let _loopTick=0,_shieldUsed=false;
 function hitStop(f){_hitStopFrames=Math.max(_hitStopFrames,f|0);}
 function _playerPos(){
  if(cGame==='flappy')return[FB.BX,fb?.by||LH/2];
@@ -714,6 +715,12 @@ function addCoin(n){
  $("ghcoin").style.display="";$("ghcoin").textContent=`🪙+${sessionCoins}`;
 }
 function gameOver(){
+ // Shield powerup: absorb first death per run
+ if(!_shieldUsed&&store.equipped?.powerup==='pw_shield'){
+  _shieldUsed=true;shake(10);SFX.hit();haptic(20);
+  $("ghcoin").textContent="🛡️ USED";
+  toast('🛡️ SHIELD ABSORBED THE HIT!');return;
+ }
  if(!SM.go('dead'))return; // guard: only run once per life
  haptic(40);SFX.death();shake(18);
  EVT.emit('gameover',{game:cGame,score});
@@ -2196,6 +2203,10 @@ function openGame(gameId,levelId){
  $("ghtitle").style.textShadow=`0 0 10px ${info.c}66`;
  $("ghsc").textContent="0";$("ghsc").style.color=info.c;
  $("ghcoin").style.display="none";$("ghcoin").textContent="";
+ // show active powerup icon in header
+ const _pw=store.equipped?.powerup;
+ const _pwItem=SHOP_D.find(s=>s.id===_pw);
+ $("ghcoin").textContent=_pwItem&&_pw!=="none"?_pwItem.icon+" READY":"";
  // overlay
  $("govl-icon").textContent=info.e;
  $("govl-title").textContent=lv?.name||info.t;
@@ -2239,6 +2250,7 @@ function startGame(){
  phase="idle";SM.go('playing');
  score=0;sessionCoins=0;
  _scoreDisplay=0;_scoreTarget=0;_hitStopFrames=0;_lastFrameT=0;_dyingFrames=0;_impactFlash=0;
+ _loopTick=0;_shieldUsed=false;
  $("ghsc").textContent="0";
  $("ghcoin").style.display="none";$("ghcoin").textContent="";
  $("govl").classList.add("hidden");
@@ -2297,6 +2309,13 @@ function startGame(){
   }catch(err){
    console.error('[ARCADE] loop error:',err);EVT.emit('loopError',err);
   }
+  // ── EQUIPPED TRAIL ──────────────────────────────────────
+  const _tItem=SHOP_D.find(s=>s.id===(store.equipped?.trail||'trail_none'));
+  if(_tItem?.trail&&(_loopTick&1)===0){
+   const[tx,ty]=_playerPos();
+   PARTS.emit(tx,ty,{n:2,colors:_tItem.trail,s0:0.4,s1:1.8,grav:0.02,up:0.3,d0:0.035,d1:0.065});
+  }
+  _loopTick++;
   // ── IMPACT FLASH — white overlay on heavy hits ──────────
   if(_impactFlash>0){
    CTX.fillStyle=`rgba(255,255,255,${_impactFlash*0.055})`;
