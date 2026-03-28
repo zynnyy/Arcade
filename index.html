@@ -175,10 +175,10 @@ button{outline:none;font-family:inherit;cursor:pointer;}
    <div class="cb"><span style="font-size:15px;">🪙</span><span id="shop-coins">0</span></div>
   </div>
   <div style="display:flex;gap:7px;margin-bottom:18px;">
-   <button class="stab on" onclick="showTab('skin',this)">SKINS</button>
-   <button class="stab" onclick="showTab('trail',this)">TRAILS</button>
-   <button class="stab" onclick="showTab('powerup',this)">POWERUPS</button>
-   <button class="stab" onclick="showTab('coins',this)">COINS</button>
+   <button class="stab on" data-tab="skins_all" onclick="showTab('skins_all',this)">SKINS</button>
+   <button class="stab" data-tab="trail" onclick="showTab('trail',this)">TRAILS</button>
+   <button class="stab" data-tab="powerup" onclick="showTab('powerup',this)">POWERUPS</button>
+   <button class="stab" data-tab="coins" onclick="showTab('coins',this)">COINS</button>
   </div>
   <div id="shopitems"></div>
  </div>
@@ -241,11 +241,36 @@ button{outline:none;font-family:inherit;cursor:pointer;}
 
 /* ── DATA ── */
 const SHOP_D=[
- {id:"skin_default",type:"skin",    name:"DEFAULT",  desc:"Classic pink cube",        price:0,   icon:"🔷",color:"#ff0a6c",c0:"#ff66cc",c1:"#cc0055",glow:"#ff0a6c"},
- {id:"skin_fire",   type:"skin",    name:"INFERNO",  desc:"Blazing fire skin",         price:80,  icon:"🔥",color:"#ff6b35",c0:"#ff9933",c1:"#cc2200",glow:"#ff6b35"},
- {id:"skin_ice",    type:"skin",    name:"GLACIER",  desc:"Frozen ice skin",           price:80,  icon:"🧊",color:"#00f2ff",c0:"#88ddff",c1:"#0066cc",glow:"#00f2ff"},
- {id:"skin_galaxy", type:"skin",    name:"GALAXY",   desc:"Cosmic nebula",             price:200, icon:"🌌",color:"#a855f7",c0:"#cc88ff",c1:"#660099",glow:"#a855f7"},
- {id:"skin_gold",   type:"skin",    name:"GILDED",   desc:"Pure gold edition",         price:350, icon:"👑",color:"#ffc107",c0:"#ffdd44",c1:"#aa8800",glow:"#ffc107"},
+ // ── BLOC skins (PRISM RUNNER) ──
+ {id:"skin_default",type:"skin",       name:"DEFAULT",     desc:"Classic pink cube",         price:0,   icon:"🔷",color:"#ff0a6c",c0:"#ff66cc",c1:"#cc0055",glow:"#ff0a6c"},
+ {id:"skin_fire",   type:"skin",       name:"INFERNO",     desc:"Blazing fire cube",         price:80,  icon:"🔥",color:"#ff6b35",c0:"#ff9933",c1:"#cc2200",glow:"#ff6b35"},
+ {id:"skin_ice",    type:"skin",       name:"GLACIER",     desc:"Frozen ice cube",           price:80,  icon:"🧊",color:"#00f2ff",c0:"#88ddff",c1:"#0066cc",glow:"#00f2ff"},
+ {id:"skin_galaxy", type:"skin",       name:"GALAXY",      desc:"Cosmic nebula cube",        price:200, icon:"🌌",color:"#a855f7",c0:"#cc88ff",c1:"#660099",glow:"#a855f7"},
+ {id:"skin_gold",   type:"skin",       name:"GILDED",      desc:"Pure gold cube",            price:350, icon:"👑",color:"#ffc107",c0:"#ffdd44",c1:"#aa8800",glow:"#ffc107"},
+ // ── BIRK skins (FLOCK) ──
+ {id:"birk_default",type:"skin_flappy",name:"BIRK",        desc:"Default cyber-sparrow",     price:0,   icon:"🐦",color:"#00f2ff",bodyCol:"#00ccdd",wingCol:"#006688",glow:"#00f2ff"},
+ {id:"birk_neon",   type:"skin_flappy",name:"NEON HAWK",   desc:"Hot-pink neon hawk",        price:80,  icon:"🌸",color:"#ff0a6c",bodyCol:"#ff0a6c",wingCol:"#880033",glow:"#ff44aa"},
+ {id:"birk_ice",    type:"skin_flappy",name:"ICE PHOENIX", desc:"Icy white phoenix",         price:80,  icon:"❄️",color:"#88ddff",bodyCol:"#cceeff",wingCol:"#4499bb",glow:"#88ddff"},
+ {id:"birk_shadow", type:"skin_flappy",name:"SHADOW RAVEN",desc:"Dark void raven",           price:150, icon:"🌑",color:"#9900ff",bodyCol:"#220033",wingCol:"#440066",glow:"#9900ff"},
+ {id:"birk_gold",   type:"skin_flappy",name:"GOLDEN EAGLE",desc:"Pure gold plumage",         price:300, icon:"👑",color:"#ffc107",bodyCol:"#ffdd44",wingCol:"#886600",glow:"#ffc107"},
+ // ── ZEPHYR skins (RUSH LANES) ──
+ {id:"zeph_default",type:"skin_temple",name:"ZEPHYR",      desc:"Standard cyber-boarder",    price:0,   icon:"🏂",color:"#00f2ff",boardCol:"#003366",riderCol:"#4488cc",glow:"#00f2ff"},
+ {id:"zeph_fire",   type:"skin_temple",name:"FIRE BOARD",  desc:"Blazing fire board",        price:80,  icon:"🔥",color:"#ff6b35",boardCol:"#cc2200",riderCol:"#ff6600",glow:"#ff6b35"},
+ {id:"zeph_crystal",type:"skin_temple",name:"CRYSTAL BOARD",desc:"Crystal energy board",    price:80,  icon:"💎",color:"#a855f7",boardCol:"#440088",riderCol:"#9944cc",glow:"#a855f7"},
+ {id:"zeph_thunder",type:"skin_temple",name:"THUNDER BOARD",desc:"Electric storm board",    price:150, icon:"⚡",color:"#ffc107",boardCol:"#886600",riderCol:"#ffcc00",glow:"#ffc107"},
+ {id:"zeph_void",   type:"skin_temple",name:"VOID BOARD",  desc:"Dark matter board",         price:300, icon:"🌑",color:"#6633ff",boardCol:"#0a0010",riderCol:"#330066",glow:"#6633ff"},
+ // ── REX skins (VIPER) ──
+ {id:"rex_default", type:"skin_snake", name:"REX",         desc:"Neon green serpent",        price:0,   icon:"🐍",color:"#00e89a",headCol:"#00e89a",bodyCol:"#00c882",glow:"#00e89a"},
+ {id:"rex_inferno", type:"skin_snake", name:"INFERNO",     desc:"Fire scales",               price:80,  icon:"🔥",color:"#ff4400",headCol:"#ff4400",bodyCol:"#cc2200",glow:"#ff6633"},
+ {id:"rex_glacier", type:"skin_snake", name:"GLACIER",     desc:"Ice scales",                price:80,  icon:"🧊",color:"#00ccff",headCol:"#00ccff",bodyCol:"#0088cc",glow:"#00ccff"},
+ {id:"rex_void",    type:"skin_snake", name:"VOID",        desc:"Dark void scales",          price:150, icon:"🌑",color:"#a855f7",headCol:"#a855f7",bodyCol:"#660099",glow:"#a855f7"},
+ {id:"rex_gold",    type:"skin_snake", name:"GILDED",      desc:"Gold scales",               price:300, icon:"👑",color:"#ffc107",headCol:"#ffdd44",bodyCol:"#cc8800",glow:"#ffc107"},
+ // ── POGO skins (SPRING QUEST) ──
+ {id:"pogo_default",type:"skin_doodle",name:"POGO",        desc:"Springy green frog",        price:0,   icon:"🐸",color:"#a855f7",bodyCol:"#33aa44",eyeCol:"#ffffff",glow:"#a855f7"},
+ {id:"pogo_cyber",  type:"skin_doodle",name:"CYBER BOT",   desc:"Cyan neon robot",           price:80,  icon:"🤖",color:"#00f2ff",bodyCol:"#003355",eyeCol:"#00f2ff",glow:"#00f2ff"},
+ {id:"pogo_shadow", type:"skin_doodle",name:"SHADOW SPRITE",desc:"Dark shadow sprite",       price:80,  icon:"👤",color:"#6633ff",bodyCol:"#0a0020",eyeCol:"#9933ff",glow:"#6633ff"},
+ {id:"pogo_cosmic", type:"skin_doodle",name:"COSMIC POGO", desc:"Purple cosmic traveler",    price:150, icon:"🌌",color:"#cc44ff",bodyCol:"#220044",eyeCol:"#cc44ff",glow:"#cc44ff"},
+ {id:"pogo_lava",   type:"skin_doodle",name:"LAVA TOAD",   desc:"Red lava toad",             price:300, icon:"🌋",color:"#ff4400",bodyCol:"#441100",eyeCol:"#ff6600",glow:"#ff4400"},
  {id:"trail_none",  type:"trail",   name:"NO TRAIL", desc:"Clean run, no effects",     price:0,   icon:"✖️",color:"#555",   trail:null},
  {id:"trail_spark", type:"trail",   name:"SPARKS",   desc:"Electric spark trail",      price:60,  icon:"⚡",color:"#ffc107",trail:["#ffc107","#fff","#ffee44"]},
  {id:"trail_rainbow",type:"trail",  name:"RAINBOW",  desc:"Full spectrum trail",       price:120, icon:"🌈",color:"#00f2ff",trail:["#00f2ff","#00e89a","#ff0a6c","#ffc107","#a855f7"]},
@@ -300,13 +325,17 @@ const GAME_META=[
 ];
 
 /* ── STORE ── */
+const FREE_ITEMS=["skin_default","birk_default","zeph_default","rex_default","pogo_default","trail_none"];
+const DEFAULT_EQ={skin:"skin_default",skin_flappy:"birk_default",skin_temple:"zeph_default",skin_snake:"rex_default",skin_doodle:"pogo_default",trail:"trail_none",powerup:"none"};
 function loadStore(){
  try{const s=JSON.parse(localStorage.getItem("av5")||"{}");
-  return{coins:150,bests:{},coinsEarned:0,owned:["skin_default","trail_none"],
-   equipped:{skin:"skin_default",trail:"trail_none",powerup:"none"},
-   ...s,equipped:{skin:"skin_default",trail:"trail_none",powerup:"none",...(s.equipped||{})},
-   owned:[...new Set(["skin_default","trail_none",...(s.owned||[])])]};
- }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:["skin_default","trail_none"],equipped:{skin:"skin_default",trail:"trail_none",powerup:"none"}};}
+  return{coins:150,bests:{},coinsEarned:0,
+   owned:FREE_ITEMS,
+   equipped:DEFAULT_EQ,
+   ...s,
+   equipped:{...DEFAULT_EQ,...(s.equipped||{})},
+   owned:[...new Set([...FREE_ITEMS,...(s.owned||[])])]};
+ }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ};}
 }
 function saveStore(){try{localStorage.setItem("av5",JSON.stringify(store));}catch(_){}}
 let store=loadStore();
@@ -342,7 +371,7 @@ function navTo(id){
  $("n-"+id).classList.add("on");
  if(id==="hub")renderHub();
  if(id==="games")showGList();
- if(id==="shop")renderShop("skin");
+ if(id==="shop"){renderShop("skins_all");document.querySelector(".stab[data-tab='skins_all']")?.classList.add("on");}
  if(id==="profile")renderProfile();
  updCoins();
 }
@@ -428,30 +457,52 @@ function showLvlList(gid){
 }
 
 /* ── SHOP ── */
+function _shopCard(item,eqKey){
+ const owned=(store.owned||[]).includes(item.id)||item.price===0;
+ const equipped=store.equipped?.[eqKey]===item.id;
+ const c=item.color||"#aaa";
+ const card=document.createElement("div");card.className="sc";
+ card.style.cssText=`border-color:${owned?c+'44':c+'1a'};background:linear-gradient(145deg,${c}0a,#090914);`;
+ let btn="";
+ if(!owned)btn=`<button class="scbtn" style="color:${c};border-color:${c}55;background:${c}1e;" onmouseenter="this.style.background='${c}30'" onmouseleave="this.style.background='${c}1e'" onclick="buyItem('${item.id}')">${typeof item.price==="string"?item.price:`🪙 ${item.price}`}</button>`;
+ else if(!equipped)btn=`<button class="scbtn" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.7);" onclick="equipItem('${item.id}')">EQUIP</button>`;
+ card.innerHTML=`${equipped?`<div style="position:absolute;top:7px;right:8px;background:${c}22;border:1px solid ${c}66;border-radius:6px;padding:2px 7px;font-family:'Exo 2',sans-serif;font-weight:700;font-size:6px;color:${c};letter-spacing:.1em;">EQUIPPED</div>`:""}
+  <div style="width:44px;height:44px;border-radius:12px;background:${c}18;border:1.5px solid ${c}44;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${item.icon}</div>
+  <div style="flex:1;min-width:0;"><div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.9);letter-spacing:.05em;">${item.name}</div><div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,.38);line-height:1.3;margin-top:2px;">${item.desc}</div>${item.coins?`<div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:12px;color:#ffc107;margin-top:4px;">🪙 ${item.coins}</div>`:""}</div>
+  <div style="display:flex;gap:7px;flex-shrink:0;">${btn}</div>`;
+ return card;
+}
 function renderShop(type){
  $("shopitems").innerHTML="";
- const items=SHOP_D.filter(i=>i.type===type);
- const grid=document.createElement("div");
- grid.className="shop-grid"+(type==="coins"?" wide":"");
- items.forEach(item=>{
-  const owned=(store.owned||[]).includes(item.id)||item.price===0;
-  const equipped=store.equipped?.[type==="powerup"?"powerup":type]===item.id;
-  const c=item.color||"#aaa";
-  const card=document.createElement("div");card.className="sc";card.style.borderColor=owned?`${c}44`:`${c}1a`;
-  let btn="";
-  if(!owned)btn=`<button class="scbtn" style="color:${c};border-color:${c}55;background:${c}1e;" onmouseenter="this.style.background='${c}30'" onmouseleave="this.style.background='${c}1e'" onclick="buyItem('${item.id}')">${typeof item.price==="string"?item.price:`🪙 ${item.price}`}</button>`;
-  else if(type!=="coins"&&!equipped)btn=`<button class="scbtn" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.7);" onclick="equipItem('${item.id}')">EQUIP</button>`;
-  card.innerHTML=`${equipped?`<div style="position:absolute;top:7px;right:8px;background:${c}1e;border:1px solid ${c}55;border-radius:6px;padding:2px 7px;font-family:Exo 2,sans-serif;font-weight:700;font-size:6.5px;color:${c};letter-spacing:.1em;">EQUIPPED</div>`:""}
-   <div style="width:42px;height:42px;border-radius:11px;background:${c}16;border:1.5px solid ${c}44;display:flex;align-items:center;justify-content:center;font-size:20px;">${item.icon}</div>
-   <div><div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.88);letter-spacing:.06em;">${item.name}</div><div style="font-family:Rajdhani,sans-serif;font-size:11px;color:rgba(255,255,255,.38);line-height:1.35;">${item.desc}</div>${item.coins?`<div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:12px;color:#ffc107;margin-top:4px;">🪙 ${item.coins}</div>`:""}</div>
-   <div style="display:flex;gap:7px;">${btn}</div>`;
-  grid.appendChild(card);
- });
- $("shopitems").appendChild(grid);
+ if(type==="skins_all"){
+  // Show all character skin groups
+  const GROUPS=[
+   {label:"🟦 BLOC — PRISM RUNNER", type:"skin",       eqKey:"skin"},
+   {label:"🐦 BIRK — FLOCK",        type:"skin_flappy", eqKey:"skin_flappy"},
+   {label:"🏂 ZEPHYR — RUSH LANES", type:"skin_temple", eqKey:"skin_temple"},
+   {label:"🐍 REX — VIPER",         type:"skin_snake",  eqKey:"skin_snake"},
+   {label:"🐸 POGO — SPRING QUEST", type:"skin_doodle", eqKey:"skin_doodle"},
+  ];
+  GROUPS.forEach(g=>{
+   const hdr=document.createElement("div");
+   hdr.style.cssText="font-family:'Exo 2',sans-serif;font-weight:700;font-size:9px;letter-spacing:.18em;color:rgba(255,255,255,.36);margin:16px 0 9px;text-transform:uppercase;";
+   hdr.textContent=g.label;$("shopitems").appendChild(hdr);
+   const grid=document.createElement("div");grid.className="shop-grid";
+   SHOP_D.filter(i=>i.type===g.type).forEach(item=>grid.appendChild(_shopCard(item,g.eqKey)));
+   $("shopitems").appendChild(grid);
+  });
+ } else {
+  const items=SHOP_D.filter(i=>i.type===type);
+  const grid=document.createElement("div");
+  grid.className="shop-grid"+(type==="coins"?" wide":"");
+  const eqKey=type==="powerup"?"powerup":type;
+  items.forEach(item=>grid.appendChild(_shopCard(item,eqKey)));
+  $("shopitems").appendChild(grid);
+ }
 }
 function showTab(type,btn){
  document.querySelectorAll(".stab").forEach(b=>b.classList.remove("on"));
- btn.classList.add("on");renderShop(type);
+ btn.classList.add("on");btn.dataset.tab=type;renderShop(type);
 }
 function buyItem(id){
  const item=SHOP_D.find(i=>i.id===id);if(!item)return;
@@ -464,10 +515,11 @@ function buyItem(id){
 }
 function equipItem(id){
  const item=SHOP_D.find(i=>i.id===id);if(!item)return;
- const k=item.type==="powerup"?"powerup":item.type;
+ const k=item.type==="powerup"?"powerup":item.type==="trail"?"trail":item.type; // skin, skin_flappy, skin_temple, skin_snake, skin_doodle
  store.equipped={...store.equipped,[k]:id};saveStore();
  toast(`Equipped ${item.name}!`);
- const at=document.querySelector(".stab.on");if(at)renderShop(item.type);
+ const at=document.querySelector(".stab.on");
+ if(at)renderShop(at.dataset.tab||item.type);
 }
 
 /* ── PROFILE ── */
