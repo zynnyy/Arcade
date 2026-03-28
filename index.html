@@ -140,12 +140,53 @@ button{outline:none;font-family:inherit;cursor:pointer;}
 .daily{background:linear-gradient(135deg,rgba(155,93,229,.14),rgba(0,242,255,.07));border:1px solid rgba(155,93,229,.28);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;}
 
 ::-webkit-scrollbar{width:0;height:0;}
+
+/* LOGIN BONUS MODAL */
+#login-modal{position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.lm-box{background:linear-gradient(145deg,#0d0d22,#080818);border:1.5px solid rgba(255,193,7,.38);border-radius:24px;padding:30px 26px;max-width:340px;width:90%;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:0 0 60px rgba(255,193,7,.14);}
+.lm-dots{display:flex;gap:8px;}
+.lm-dot{width:28px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);}
+.lm-dot.on{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+
+/* ACHIEVEMENT UNLOCK TOAST */
+#ach-toast{position:fixed;bottom:calc(var(--sb) + 82px);left:50%;transform:translateX(-50%) translateY(16px);z-index:550;min-width:260px;max-width:330px;padding:13px 18px;border-radius:14px;background:linear-gradient(135deg,rgba(168,85,247,.22),rgba(0,0,0,.8));border:1.5px solid rgba(168,85,247,.5);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;display:flex;align-items:center;gap:12px;backdrop-filter:blur(10px);}
+#ach-toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ACHIEVEMENT LIST */
+.ach-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;margin-bottom:8px;border:1px solid;}
+.ach-item.done{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.3);}
+.ach-item.todo{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.06);opacity:.55;}
 </style>
 
 </head>
 <body>
 <div class="ag"></div>
 <div id="toast"></div>
+
+<!-- LOGIN BONUS MODAL -->
+<div id="login-modal" class="hidden">
+ <div class="lm-box">
+  <div style="font-size:44px;filter:drop-shadow(0 0 18px var(--gold));">🎁</div>
+  <div style="font-family:'Exo 2',sans-serif;font-weight:900;font-size:16px;letter-spacing:.2em;color:var(--gold);">DAILY BONUS</div>
+  <div id="lm-streak" style="font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:.15em;color:rgba(255,255,255,.55);"></div>
+  <div style="display:flex;align-items:center;gap:10px;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.32);border-radius:14px;padding:14px 28px;">
+   <span style="font-size:28px;">🪙</span>
+   <span id="lm-coins" style="font-family:'Exo 2',sans-serif;font-weight:900;font-size:34px;color:var(--gold);"></span>
+  </div>
+  <div class="lm-dots" id="lm-dots"></div>
+  <button onclick="claimLoginBonus()" style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:13px;padding:14px 40px;border:2px solid var(--gold);background:rgba(255,193,7,.12);color:var(--gold);border-radius:12px;letter-spacing:.18em;width:100%;transition:all .14s;">CLAIM!</button>
+ </div>
+</div>
+
+<!-- ACHIEVEMENT UNLOCK TOAST -->
+<div id="ach-toast">
+ <div id="at-icon" style="font-size:28px;flex-shrink:0;"></div>
+ <div style="flex:1;min-width:0;">
+  <div style="font-family:'Rajdhani',sans-serif;font-size:9px;letter-spacing:.2em;color:rgba(168,85,247,.85);">ACHIEVEMENT UNLOCKED</div>
+  <div id="at-name" style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:13px;color:#fff;margin-top:1px;"></div>
+  <div id="at-coins" style="font-family:'Exo 2',sans-serif;font-size:10px;color:var(--gold);margin-top:2px;"></div>
+ </div>
+</div>
 
 <!-- ═══ HUB ═══ -->
 
@@ -222,6 +263,8 @@ button{outline:none;font-family:inherit;cursor:pointer;}
   <div id="pscores"></div>
   <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.32);margin-top:18px;margin-bottom:12px;">LOADOUT</div>
   <div id="pload"></div>
+  <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.32);margin-top:22px;margin-bottom:12px;">ACHIEVEMENTS</div>
+  <div id="pachievements"></div>
  </div>
 </div>
 
@@ -345,6 +388,25 @@ const GAME_META=[
  {id:"doodle",e:"🐸",n:"SPRING QUEST", sub:"3 worlds · bounce POGO to the stars",          c:"#a855f7",lv:3},
 ];
 
+/* ── ACHIEVEMENTS ── */
+const ACHIEVEMENTS=[
+ {id:"first_flight", icon:"🐦",name:"TAKE FLIGHT",    desc:"Play FLOCK for the first time",         coins:20},
+ {id:"first_run",    icon:"🟦",name:"FIRST RUN",       desc:"Play PRISM RUNNER for the first time",   coins:20},
+ {id:"first_ride",   icon:"🏂",name:"HIT THE LANE",    desc:"Play RUSH LANES for the first time",     coins:20},
+ {id:"first_hunt",   icon:"🐍",name:"SERPENT RISES",   desc:"Play VIPER for the first time",          coins:20},
+ {id:"first_bounce", icon:"🐸",name:"SPRING LOADED",   desc:"Play SPRING QUEST for the first time",   coins:20},
+ {id:"score_10",     icon:"🌟",name:"GETTING STARTED", desc:"Score 10+ in any game",                  coins:25},
+ {id:"score_25",     icon:"⭐",name:"ON A ROLL",        desc:"Score 25+ in any game",                  coins:40},
+ {id:"score_50",     icon:"🏅",name:"HIGH FLYER",       desc:"Score 50+ in any game",                  coins:75},
+ {id:"new_best",     icon:"🏆",name:"PERSONAL BEST",   desc:"Beat your own high score",               coins:30},
+ {id:"five_games",   icon:"🎮",name:"ARCADE MASTER",   desc:"Play all 5 games",                       coins:80},
+ {id:"shop_first",   icon:"🛍️",name:"FIRST PURCHASE",  desc:"Buy an item from the shop",              coins:30},
+ {id:"streak_3",     icon:"🔥",name:"ON FIRE",          desc:"Log in 3 days in a row",                 coins:50},
+ {id:"daily_done",   icon:"🎯",name:"DAILY GRIND",      desc:"Complete a daily challenge",             coins:0},
+ {id:"collector",    icon:"💎",name:"COLLECTOR",        desc:"Own 5+ items in the shop",               coins:60},
+ {id:"coin_100",     icon:"🪙",name:"COIN HOARDER",     desc:"Earn 100 coins total",                   coins:20},
+];
+
 /* ── STORE ── */
 const FREE_ITEMS=["skin_default","birk_default","zeph_default","rex_default","pogo_default","trail_none"];
 const DEFAULT_EQ={skin:"skin_default",skin_flappy:"birk_default",skin_temple:"zeph_default",skin_snake:"rex_default",skin_doodle:"pogo_default",trail:"trail_none",powerup:"none"};
@@ -353,10 +415,12 @@ function loadStore(){
   return{coins:150,bests:{},coinsEarned:0,
    owned:FREE_ITEMS,
    equipped:DEFAULT_EQ,
+   lastLogin:null,loginStreak:0,achievements:{},dailyDone:null,
    ...s,
    equipped:{...DEFAULT_EQ,...(s.equipped||{})},
-   owned:[...new Set([...FREE_ITEMS,...(s.owned||[])])]};
- }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ};}
+   owned:[...new Set([...FREE_ITEMS,...(s.owned||[])])],
+   achievements:{...(s.achievements||{})}};
+ }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ,lastLogin:null,loginStreak:0,achievements:{},dailyDone:null};}
 }
 function saveStore(){try{localStorage.setItem("av5",JSON.stringify(store));}catch(_){}}
 let store=loadStore();
@@ -425,16 +489,20 @@ function renderHub(){
   $("hub-cards").appendChild(d);
  });
  // dynamic daily challenge
- const DC_GAMES=GAME_META.filter(g=>g.id!=="snake");
- const dcG=DC_GAMES[(new Date().getDate())%DC_GAMES.length];
- const dcTarget=10+((new Date().getDate()*7)%21);
- const dcReward=80+dcTarget*4;
- $("hub-daily").innerHTML=`
+ const _dc=_getDailyChallenge();
+ const _dcDone=store.dailyDone?.date===_dc.date;
+ $("hub-daily").innerHTML=_dcDone?`
+  <span style="font-size:30px;">✅</span>
+  <div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--green);letter-spacing:.1em;">DAILY CHALLENGE</div>
+   <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:rgba(255,255,255,.5);margin-top:3px;">Score ${_dc.target} in ${_dc.gameName}</div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--green);margin-top:5px;">CLAIMED! 🪙 +${_dc.reward}</div>
+  </div>`:`
   <span style="font-size:30px;">🎯</span>
   <div>
    <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--purple);letter-spacing:.1em;">DAILY CHALLENGE</div>
-   <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:rgba(255,255,255,.5);margin-top:3px;">Score ${dcTarget} in ${dcG.n}</div>
-   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--gold);margin-top:5px;">🪙 +${dcReward} COIN REWARD</div>
+   <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:rgba(255,255,255,.5);margin-top:3px;">Score ${_dc.target} in ${_dc.gameName}</div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--gold);margin-top:5px;">🪙 +${_dc.reward} COIN REWARD</div>
   </div>`;
 }
 
@@ -532,6 +600,8 @@ function buyItem(id){
  if((store.coins||0)<item.price){toast("Not enough coins! 🪙",false);return;}
  store.coins-=item.price;store.owned=[...store.owned,id];saveStore();updCoins();
  toast(`✓ Unlocked ${item.name}!`);
+ _unlockAchievement('shop_first');
+ if((store.owned||[]).length>=5)_unlockAchievement('collector');
  const at=document.querySelector(".stab.on");if(at)renderShop(item.type);
 }
 function equipItem(id){
@@ -564,6 +634,19 @@ function renderProfile(){
   const d=document.createElement("div");d.style.cssText="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;margin-bottom:8px;";
   d.innerHTML=`<span style="font-size:18px;">${item?.icon||"—"}</span><div><div style="font-family:Rajdhani,sans-serif;font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.15em;">${row.l}</div><div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:12px;color:${item?.color||"rgba(255,255,255,.5)"};">${item?.name||"NONE"}</div></div>`;
   pl.appendChild(d);
+ });
+ // Achievements
+ const pa=$("pachievements");pa.innerHTML="";
+ const unlocked=Object.keys(store.achievements||{}).length;
+ const ap=document.createElement("div");
+ ap.style.cssText="font-family:'Rajdhani',sans-serif;font-size:12px;color:rgba(255,255,255,.32);margin-bottom:14px;letter-spacing:.1em;";
+ ap.textContent=`${unlocked} / ${ACHIEVEMENTS.length} UNLOCKED`;
+ pa.appendChild(ap);
+ ACHIEVEMENTS.forEach(a=>{
+  const done=!!store.achievements?.[a.id];
+  const d=document.createElement("div");d.className="ach-item "+(done?"done":"todo");
+  d.innerHTML=`<span style="font-size:22px;flex-shrink:0;">${a.icon}</span><div style="flex:1;min-width:0;"><div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:12px;color:${done?"rgba(255,255,255,.88)":"rgba(255,255,255,.4)"};">${a.name}${done?" ✓":""}</div><div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,.3);margin-top:1px;">${a.desc}</div></div>${a.coins>0?`<span style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;white-space:nowrap;color:${done?"rgba(255,193,7,.45)":"rgba(255,255,255,.18)"};">🪙${a.coins}</span>`:""}`;
+  pa.appendChild(d);
  });
 }
 
@@ -642,6 +725,8 @@ function gameOver(){
  _goNewBest=score>prev;
  store.bests={...store.bests,[_goBk]:Math.max(prev,score),[cGame]:Math.max(store.bests?.[cGame]||0,score)};
  saveStore();
+ checkGameAchievements();
+ checkDailyChallenge();
  // loop continues in slow-mo dying mode; overlay shown when _dyingFrames hits 0
  _dyingFrames=24;
 }
@@ -2003,6 +2088,93 @@ function tickDoodle(){
 
 <script>
 /* ════════════════════════════════════════════
+   PHASE 3 — RETENTION LOOP
+════════════════════════════════════════════ */
+
+/* ── DAILY CHALLENGE ── */
+function _getDailyChallenge(){
+ const today=new Date().toISOString().slice(0,10);
+ const DC_GAMES=GAME_META.filter(g=>g.id!=='snake');
+ const dcG=DC_GAMES[(new Date().getDate())%DC_GAMES.length];
+ const dcTarget=10+((new Date().getDate()*7)%21);
+ const dcReward=80+dcTarget*4;
+ return{date:today,game:dcG.id,gameName:dcG.n,target:dcTarget,reward:dcReward};
+}
+function checkDailyChallenge(){
+ const dc=_getDailyChallenge();
+ if(store.dailyDone?.date===dc.date)return;
+ if(cGame===dc.game&&score>=dc.target){
+  store.dailyDone={date:dc.date,claimed:true};
+  store.coins+=dc.reward;
+  store.coinsEarned=(store.coinsEarned||0)+dc.reward;
+  saveStore();updCoins();
+  _unlockAchievement('daily_done');
+  const delay=_achUnlockTimer?3400:400;
+  setTimeout(()=>toast(`🎯 DAILY COMPLETE! +${dc.reward} COINS 🪙`),delay);
+ }
+}
+
+/* ── ACHIEVEMENT SYSTEM ── */
+let _achUnlockTimer=null;
+function _unlockAchievement(id){
+ if(store.achievements?.[id])return;
+ const ach=ACHIEVEMENTS.find(a=>a.id===id);if(!ach)return;
+ store.achievements={...store.achievements,[id]:true};
+ if(ach.coins>0){store.coins+=ach.coins;store.coinsEarned=(store.coinsEarned||0)+ach.coins;}
+ saveStore();updCoins();
+ $('at-icon').textContent=ach.icon;
+ $('at-name').textContent=ach.name;
+ $('at-coins').textContent=ach.coins>0?`+${ach.coins} COINS`:'';
+ const t=$('ach-toast');
+ if(_achUnlockTimer)clearTimeout(_achUnlockTimer);
+ t.classList.remove('on');void t.offsetWidth;t.classList.add('on');
+ _achUnlockTimer=setTimeout(()=>{t.classList.remove('on');_achUnlockTimer=null;},3200);
+}
+function checkGameAchievements(){
+ const firstMap={flappy:'first_flight',geo:'first_run',temple:'first_ride',snake:'first_hunt',doodle:'first_bounce'};
+ if(firstMap[cGame])_unlockAchievement(firstMap[cGame]);
+ const gPlayed=Object.keys(firstMap).filter(g=>store.achievements?.[firstMap[g]]);
+ if(gPlayed.length===5)_unlockAchievement('five_games');
+ if(score>=10)_unlockAchievement('score_10');
+ if(score>=25)_unlockAchievement('score_25');
+ if(score>=50)_unlockAchievement('score_50');
+ if(_goNewBest)_unlockAchievement('new_best');
+ if((store.coinsEarned||0)>=100)_unlockAchievement('coin_100');
+ if((store.owned||[]).length>=5)_unlockAchievement('collector');
+}
+
+/* ── LOGIN BONUS ── */
+const _STREAK_REWARDS=[20,30,50,75,100,125,150];
+let _pendingLoginCoins=0;
+function checkLoginBonus(){
+ const today=new Date().toISOString().slice(0,10);
+ const yesterday=new Date(Date.now()-864e5).toISOString().slice(0,10);
+ if(store.lastLogin===today)return;
+ store.loginStreak=store.lastLogin===yesterday?(store.loginStreak||0)+1:1;
+ store.lastLogin=today;
+ saveStore();
+ const idx=Math.min((store.loginStreak||1)-1,_STREAK_REWARDS.length-1);
+ _pendingLoginCoins=_STREAK_REWARDS[idx];
+ const dots=[];
+ const filled=((store.loginStreak-1)%7)+1;
+ for(let i=0;i<7;i++)dots.push(`<div class="lm-dot${i<filled?' on':''}"></div>`);
+ $('lm-dots').innerHTML=dots.join('');
+ $('lm-streak').textContent=`🔥 DAY ${store.loginStreak} STREAK`;
+ $('lm-coins').textContent=`+${_pendingLoginCoins}`;
+ $('login-modal').classList.remove('hidden');
+ if((store.loginStreak||0)>=3)_unlockAchievement('streak_3');
+}
+function claimLoginBonus(){
+ $('login-modal').classList.add('hidden');
+ if(_pendingLoginCoins>0){
+  store.coins+=_pendingLoginCoins;
+  store.coinsEarned=(store.coinsEarned||0)+_pendingLoginCoins;
+  saveStore();updCoins();
+  _pendingLoginCoins=0;
+ }
+}
+
+/* ════════════════════════════════════════════
    OPEN / START / LEAVE GAME
 ════════════════════════════════════════════ */
 const GAME_INFO={
@@ -2182,6 +2354,7 @@ document.getElementById("cwrap").addEventListener("pointerup",e=>{
 
 /* ── INIT ── */
 renderHub();
+checkLoginBonus();
 </script>
 
 <script>
