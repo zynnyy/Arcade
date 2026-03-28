@@ -43,9 +43,12 @@ button{outline:none;font-family:inherit;cursor:pointer;}
 .cb span{font-family:“Exo 2”,sans-serif;font-weight:700;font-size:15px;color:var(--gold);letter-spacing:.04em;}
 
 /* GAME CARDS */
-.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.hc{background:linear-gradient(145deg,#0d0d22,#080818);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:all .13s;}
-.hc:active{transform:scale(.92)!important;}
+.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.hc{background:linear-gradient(145deg,#0d0d22,#080818);border:1px solid rgba(255,255,255,.09);border-radius:18px;padding:20px 14px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:9px;transition:transform .13s,box-shadow .13s;min-height:118px;position:relative;overflow:hidden;}
+.hc::before{content:"";position:absolute;inset:0;border-radius:18px;opacity:0;transition:opacity .2s;background:radial-gradient(ellipse at 50% 0%,var(--hc-glow,rgba(0,242,255,.18)),transparent 70%);}
+.hc:hover::before,.hc:active::before{opacity:1;}
+.hc:active{transform:scale(.93)!important;}
+@keyframes hcpulse{0%,100%{box-shadow:0 0 0 1px var(--hc-border,rgba(255,255,255,.09)),0 4px 20px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 1px var(--hc-border,rgba(255,255,255,.15)),0 4px 28px var(--hc-shadow,rgba(0,242,255,.12))}}
 
 /* GAME ROWS */
 .gr{background:linear-gradient(135deg,rgba(13,13,34,.98),rgba(8,8,22,.98));border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px 18px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:all .13s;margin-bottom:12px;}
@@ -134,17 +137,10 @@ button{outline:none;font-family:inherit;cursor:pointer;}
    <div style="font-family:Rajdhani,sans-serif;font-size:11px;letter-spacing:.35em;color:rgba(255,255,255,.26);margin-top:7px;">5 GAMES · LEVELS · EARN COINS</div>
   </div>
   <div style="display:flex;justify-content:center;margin-bottom:22px;"><div class="cb"><span style="font-size:15px;">🪙</span><span id="hub-coins">0</span></div></div>
-  <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.32);margin-bottom:12px;">QUICK PLAY</div>
+  <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:9px;letter-spacing:.24em;color:rgba(255,255,255,.28);margin-bottom:13px;text-transform:uppercase;">Quick Play</div>
   <div class="hub-grid" id="hub-cards"></div>
   <div style="height:16px;"></div>
-  <div class="daily">
-   <span style="font-size:30px;">🎯</span>
-   <div>
-    <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:10px;color:var(--purple);letter-spacing:.1em;">DAILY CHALLENGE</div>
-    <div style="font-family:Rajdhani,sans-serif;font-size:12px;color:rgba(255,255,255,.5);margin-top:3px;">Score 15 in Geo Dash – Level 2</div>
-    <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:10px;color:var(--gold);margin-top:5px;">🪙 +120 COIN REWARD</div>
-   </div>
-  </div>
+  <div class="daily" id="hub-daily"></div>
  </div>
 </div>
 
@@ -355,17 +351,41 @@ function navTo(id){
 function renderHub(){
  updCoins();
  $("hub-cards").innerHTML="";
- const HG=[{id:"flappy",e:"🐦",l1:"FLOCK",l2:"",c:"#00f2ff"},{id:"geo",e:"🟦",l1:"PRISM",l2:"RUNNER",c:"#ff0a6c"},{id:"temple",e:"🏂",l1:"RUSH",l2:"LANES",c:"#ffc107"},{id:"snake",e:"🐍",l1:"VIPER",l2:"",c:"#00e89a"},{id:"doodle",e:"🐸",l1:"SPRING",l2:"QUEST",c:"#a855f7"}];
- HG.forEach(g=>{
+ const HG=[
+  {id:"flappy",e:"🐦",name:"FLOCK",     char:"BIRK",   c:"#00f2ff",lv:6},
+  {id:"geo",   e:"🟦",name:"PRISM RUNNER",char:"BLOC", c:"#ff0a6c",lv:8},
+  {id:"temple",e:"🏂",name:"RUSH LANES", char:"ZEPHYR",c:"#ffc107",lv:5},
+  {id:"snake", e:"🐍",name:"VIPER",      char:"REX",   c:"#00e89a",lv:1},
+  {id:"doodle",e:"🐸",name:"SPRING QUEST",char:"POGO", c:"#a855f7",lv:3},
+ ];
+ HG.forEach((g,i)=>{
+  const best=store.bests?.[g.id]||0;
   const d=document.createElement("button");d.className="hc";
-  d.style.cssText=`border-color:${g.c}44;`;
-  d.innerHTML=`<span style="font-size:28px;">${g.e}</span><span style="font-family:Exo 2,sans-serif;font-weight:700;font-size:9px;letter-spacing:.07em;color:${g.c};text-align:center;line-height:1.5;">${g.l1}${g.l2?`<br>${g.l2}`:""}</span><span style="font-family:Rajdhani,sans-serif;font-size:11px;color:rgba(255,255,255,.3);">BEST: ${store.bests?.[g.id]||0}</span>`;
-  d.onmouseenter=()=>{d.style.boxShadow=`0 0 20px ${g.c}44`;d.style.borderColor=`${g.c}88`;};
-  d.onmouseleave=()=>{d.style.boxShadow="";d.style.borderColor=`${g.c}44`;};
+  d.style.cssText=`--hc-glow:${g.c}28;--hc-border:${g.c}55;--hc-shadow:${g.c}22;border-color:${g.c}44;animation:hcpulse ${2.4+i*0.3}s ease-in-out infinite;background:linear-gradient(145deg,${g.c}0d,#080814);`;
+  d.innerHTML=`
+   <div style="font-size:36px;filter:drop-shadow(0 0 12px ${g.c}88);line-height:1;">${g.e}</div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;color:${g.c};text-align:center;line-height:1.25;">${g.name}</div>
+   <div style="font-family:'Rajdhani',sans-serif;font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.06em;">${g.char}</div>
+   <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+    <span style="font-family:'Exo 2',sans-serif;font-size:8px;font-weight:700;color:${g.c}99;background:${g.c}14;padding:2px 7px;border-radius:5px;letter-spacing:.08em;">${g.lv} LVL</span>
+    <span style="font-family:'Rajdhani',sans-serif;font-size:10px;color:rgba(255,255,255,.28);">BEST ${best}</span>
+   </div>`;
   d.onclick=()=>{navTo("games");showLvlList(g.id);};
-  if(HG.indexOf(g)===HG.length-1&&HG.length%2===1)d.style.gridColumn="1/-1";
+  if(i===HG.length-1&&HG.length%2===1)d.style.gridColumn="1/-1";
   $("hub-cards").appendChild(d);
  });
+ // dynamic daily challenge
+ const DC_GAMES=GAME_META.filter(g=>g.id!=="snake");
+ const dcG=DC_GAMES[(new Date().getDate())%DC_GAMES.length];
+ const dcTarget=10+((new Date().getDate()*7)%21);
+ const dcReward=80+dcTarget*4;
+ $("hub-daily").innerHTML=`
+  <span style="font-size:30px;">🎯</span>
+  <div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--purple);letter-spacing:.1em;">DAILY CHALLENGE</div>
+   <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:rgba(255,255,255,.5);margin-top:3px;">Score ${dcTarget} in ${dcG.n}</div>
+   <div style="font-family:'Exo 2',sans-serif;font-weight:700;font-size:10px;color:var(--gold);margin-top:5px;">🪙 +${dcReward} COIN REWARD</div>
+  </div>`;
 }
 
 /* ── GAME LIST ── */
