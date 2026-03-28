@@ -1118,10 +1118,24 @@ function _fbDrawPipe(p,lv,GY){
   CTX.fillStyle=gr;
   CTX.fillRect(p.x|0,0,FB.PW,p.ty|0);
   CTX.fillRect(p.x|0,bot|0,FB.PW,GY-bot);
+  // ── 3D right-side face ──
+  const pd=10; // perspective depth
+  CTX.fillStyle='rgba(0,0,0,0.38)';
+  CTX.fillRect((p.x+FB.PW)|0,0,pd,p.ty|0);
+  CTX.fillRect((p.x+FB.PW)|0,bot|0,pd,GY-bot);
   // cap
   CTX.fillStyle=pg2;
   CTX.fillRect((p.x-5)|0,(p.ty-12)|0,FB.PW+10,12);
   CTX.fillRect((p.x-5)|0,bot|0,FB.PW+10,12);
+  // cap right side
+  CTX.fillStyle='rgba(0,0,0,0.45)';
+  CTX.fillRect((p.x+FB.PW+5)|0,(p.ty-12)|0,pd,12);
+  CTX.fillRect((p.x+FB.PW+5)|0,bot|0,pd,12);
+  // cap underside (facing inward — the mouth of the pipe)
+  CTX.fillStyle=pg2+'99';
+  CTX.fillRect((p.x-5)|0,p.ty|0,FB.PW+10,5);
+  CTX.fillStyle=pg2+'44';
+  CTX.fillRect((p.x-5)|0,(bot+12)|0,FB.PW+10,4);
   // highlight strip
   CTX.fillStyle='rgba(255,255,255,0.12)';
   CTX.fillRect((p.x+4)|0,0,7,p.ty-12);
@@ -1428,11 +1442,23 @@ function tickGeo(){
       o.hx1=bx+3;o.hx2=bx+41;o.hy=FL-22;
     }else if(o.type==='block'){
       rr(bx,FL-30,30,30,4);CTX.fill();
+      // 3D right side
+      CTX.fillStyle='rgba(0,0,0,0.42)';
+      CTX.beginPath();CTX.moveTo(bx+30,FL-30);CTX.lineTo(bx+38,FL-36);CTX.lineTo(bx+38,FL-6);CTX.lineTo(bx+30,FL);CTX.closePath();CTX.fill();
+      // 3D top face
+      CTX.fillStyle=lv.obsGlow+'55';
+      CTX.beginPath();CTX.moveTo(bx,FL-30);CTX.lineTo(bx+30,FL-30);CTX.lineTo(bx+38,FL-36);CTX.lineTo(bx+8,FL-36);CTX.closePath();CTX.fill();
       CTX.strokeStyle=lv.obsGlow+'88';CTX.lineWidth=1.5;rr(bx+1,FL-29,28,28,3);CTX.stroke();
       CTX.fillStyle='rgba(255,255,255,0.1)';CTX.fillRect(bx+4,FL-26,8,8);
       o.hx1=bx+3;o.hx2=bx+27;o.hy=FL-27;
     }else if(o.type==='tall'){
       rr(bx,FL-60,30,60,4);CTX.fill();
+      // 3D right side
+      CTX.fillStyle='rgba(0,0,0,0.42)';
+      CTX.beginPath();CTX.moveTo(bx+30,FL-60);CTX.lineTo(bx+38,FL-66);CTX.lineTo(bx+38,FL-6);CTX.lineTo(bx+30,FL);CTX.closePath();CTX.fill();
+      // 3D top face
+      CTX.fillStyle=lv.obsGlow+'55';
+      CTX.beginPath();CTX.moveTo(bx,FL-60);CTX.lineTo(bx+30,FL-60);CTX.lineTo(bx+38,FL-66);CTX.lineTo(bx+8,FL-66);CTX.closePath();CTX.fill();
       CTX.strokeStyle=lv.obsGlow+'66';CTX.lineWidth=1.5;rr(bx+1,FL-59,28,58,3);CTX.stroke();
       CTX.fillStyle='rgba(255,255,255,0.08)';CTX.fillRect(bx+4,FL-56,8,8);CTX.fillRect(bx+4,FL-30,8,8);
       o.hx1=bx+3;o.hx2=bx+27;o.hy=FL-57;
@@ -2280,6 +2306,11 @@ function tickDoodle(){
     const ptop=p.type==='crumble'?'#aa5522':p.type==='spring'?'#ffee00':world.platTop;
     const psh=p.type==='spring'?'#ffee00':p.type==='moving'?world.color:null;
     if(psh)glow(psh,8);
+    // ── 3D platform: bottom face + right face ──
+    const pdp=6; // depth
+    CTX.fillStyle='rgba(0,0,0,0.45)';
+    CTX.fillRect(p.x+3,p.y+p.h,p.w-3,pdp); // bottom face
+    CTX.fillRect(p.x+p.w,p.y+3,pdp,p.h+pdp-3); // right face
     // platform body with rounded rect + shine
     CTX.fillStyle=pcol;rr(p.x,p.y,p.w,p.h,5);CTX.fill();
     // top strip
