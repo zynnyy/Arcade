@@ -1192,6 +1192,8 @@ function resetTemple(){
     tick:0,spd:1.7,flo:0,
     lives:3,hitCool:0,
     particles:[],
+    streak:0,streakTimer:0,
+    boostTimer:0,boostFlash:0,
   };
 }
 function templeShift(d){
@@ -1280,9 +1282,11 @@ function _trBg(biome,tick){
 }
 
 function tickTemple(){
-  tr.tick++;tr.spd=1.7+tr.tick*0.0013;
+  tr.tick++;tr.spd=1.7+tr.tick*0.0013+(tr.boostTimer>0?1.2:0);
   if(tr.cool>0)tr.cool--;
   if(tr.hitCool>0)tr.hitCool--;
+  if(tr.boostTimer>0){tr.boostTimer--;tr.boostFlash=(tr.boostTimer%8<4)?1:0;}else{tr.boostFlash=0;}
+  if(tr.streakTimer>0)tr.streakTimer--;
   tr.flo=(tr.flo+tr.spd*0.022)%1;
   tr.lean*=0.88;
 
@@ -1343,24 +1347,67 @@ function tickTemple(){
   }
   tr.coins=tr.coins.filter(c=>c.d<=1.06);
 
-  // ── OBSTACLES ──
+  // ── OBSTACLES + BOOST PADS ──
   const sp=Math.max(52,96-tr.tick*0.036);
   if(tr.tick%Math.round(sp)===0){
-    const blocked=Math.floor(Math.random()*3);
-    tr.obs.push({lane:blocked,d:0.06,hit:false,type:Math.floor(Math.random()*biome.obs.length)});
+    // 15% chance of speed boost pad
+    if(Math.random()<0.15){
+      const padLane=Math.floor(Math.random()*3);
+      tr.obs.push({lane:padLane,d:0.06,hit:false,type:-1,boost:true});
+    } else {
+      const blocked=Math.floor(Math.random()*3);
+      // at high tick, 25% chance of double-lane block
+      if(tr.tick>400&&Math.random()<0.25){
+        const lane2=(blocked+1+Math.floor(Math.random()*2))%3;
+        tr.obs.push({lane:blocked,d:0.06,hit:false,type:Math.floor(Math.random()*biome.obs.length),double:lane2});
+        tr.obs.push({lane:lane2,d:0.06,hit:false,type:Math.floor(Math.random()*biome.obs.length),linked:true});
+      } else {
+        tr.obs.push({lane:blocked,d:0.06,hit:false,type:Math.floor(Math.random()*biome.obs.length)});
+      }
+    }
   }
   for(const o of tr.obs){
     o.d+=tr.spd*0.016;if(o.d>1.06)continue;
     const ox=trPX(o.lane,o.d),oy=trPY(o.d),os=Math.max(10,o.d*50);
-    glow(biome.rail,12);CTX.font=`${os|0}px serif`;CTX.textBaseline='bottom';CTX.textAlign='center';
-    CTX.fillText(biome.obs[o.type],ox|0,oy|0);ng();
-    if(!o.hit&&o.d>0.88&&o.d<1.0&&o.lane===tr.lane&&tr.hitCool===0){
-      o.hit=true;tr.lives--;tr.hitCool=90;haptic('h');SFX.hit();shake(8);
-      PARTS.emit(tr.lerpX,TR_PLY,{n:12,type:'sparks',s0:2,s1:6,colors:[biome.rail]});
-      document.getElementById('cwrap').classList.remove('hitanim');
-      void document.getElementById('cwrap').offsetWidth;
-      document.getElementById('cwrap').classList.add('hitanim');
-      if(tr.lives<=0){gameOver();return;}
+    if(o.boost){
+      // draw boost pad — glowing ⚡
+      glow('#ffee00',16);CTX.font=`${os|0}px serif`;CTX.textBaseline='bottom';CTX.textAlign='center';
+      CTX.fillText('⚡',ox|0,oy|0);ng();
+      if(!o.hit&&o.d>0.88&&o.d<1.0&&o.lane===tr.lane){
+        o.hit=true;tr.boostTimer=180;haptic();SFX.coin();
+        PARTS.emit(ox,oy,{n:14,type:'sparks',colors:['#ffee00','#ffffff'],s0:3,s1:7});
+        toast('⚡ SPEED BOOST!');
+      }
+    } else {
+      glow(biome.rail,12);CTX.font=`${os|0}px serif`;CTX.textBaseline='bottom';CTX.textAlign='center';
+      CTX.fillText(biome.obs[o.type],ox|0,oy|0);ng();
+      if(!o.hit&&o.d>0.88&&o.d<1.0&&o.lane===tr.lane&&tr.hitCool===0){
+        o.hit=true;tr.lives--;tr.hitCool=90;haptic('h');
+        // biome-specific SFX pitch
+        const biomeFreqs={'#00f2ff':220,'#ffc107':280,'#ff0a6c':180,'#a855f7':200,'#ffffff':260};
+        const freq=biomeFreqs[biome.rail]||220;
+        try{const a=new AudioContext(),osc=a.createOscillator(),g2=a.createGain();
+          osc.type='sawtooth';osc.frequency.value=freq;g2.gain.value=0.3;
+          osc.connect(g2);g2.connect(a.destination);osc.start();g2.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.25);osc.stop(a.currentTime+0.25);}catch(_){}
+        shake(8);
+        // reset streak on hit
+        tr.streak=0;tr.streakTimer=0;
+        PARTS.emit(tr.lerpX,TR_PLY,{n:12,type:'sparks',s0:2,s1:6,colors:[biome.rail]});
+        document.getElementById('cwrap').classList.remove('hitanim');
+        void document.getElementById('cwrap').offsetWidth;
+        document.getElementById('cwrap').classList.add('hitanim');
+        if(tr.lives<=0){gameOver();return;}
+      }
+      // obstacle passed without hit = streak
+      if(!o.hit&&o.d>=1.0&&!o.linked){
+        o.hit=true;
+        tr.streak++;tr.streakTimer=120;
+        if(tr.streak>0&&tr.streak%5===0){
+          setScore(score+tr.streak);// bonus coins for milestone
+          toast(`🔥 STREAK ×${tr.streak}! +${tr.streak} pts`);
+          PARTS.emit(tr.lerpX,TR_PLY-30,{n:10,type:'sparks',colors:['#00f2ff','#ffffff'],s0:2,s1:5});
+        }
+      }
     }
     if(o.d>=1.0)o.hit=true;
   }
@@ -1390,6 +1437,30 @@ function tickTemple(){
   ng();CTX.restore();
 
   PARTS.update();PARTS.draw();
+
+  // ── BOOST OVERLAY ──
+  if(tr.boostTimer>0){
+    CTX.save();
+    CTX.globalAlpha=(tr.boostFlash?0.18:0.09);
+    CTX.fillStyle='#ffee00';CTX.fillRect(0,0,LW,LH);
+    CTX.restore();
+    // boost bar
+    const bPct=tr.boostTimer/180;
+    CTX.fillStyle='rgba(0,0,0,0.5)';CTX.fillRect(LW/2-50,8,100,7);
+    CTX.fillStyle='#ffee00';CTX.fillRect(LW/2-50,8,100*bPct,7);
+    CTX.strokeStyle='#ffee0088';CTX.lineWidth=1;CTX.strokeRect(LW/2-50,8,100,7);
+    CTX.fillStyle='#ffee00';CTX.font='bold 9px sans-serif';CTX.textAlign='center';CTX.textBaseline='top';
+    CTX.fillText('⚡ BOOST',LW/2,17);
+  }
+
+  // ── STREAK HUD ──
+  if(tr.streakTimer>0&&tr.streak>=3){
+    const a=Math.min(1,tr.streakTimer/30);
+    CTX.save();CTX.globalAlpha=a;
+    CTX.font='bold 13px sans-serif';CTX.textAlign='right';CTX.textBaseline='top';
+    CTX.fillStyle='#00f2ff';CTX.fillText(`🔥 STREAK ×${tr.streak}`,LW-10,10);
+    CTX.restore();
+  }
 
   // ── LIVES HUD ──
   CTX.font='14px serif';CTX.textAlign='left';CTX.textBaseline='top';
