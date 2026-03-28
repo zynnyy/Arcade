@@ -754,6 +754,32 @@ let _hitStopFrames=0,_scoreDisplay=0,_scoreTarget=0,_lastFrameT=0;
 let _dyingFrames=0,_impactFlash=0,_goNewBest=false,_goBk='';
 let _loopTick=0,_shieldUsed=false;
 let _levelTarget=0,_finishTriggered=false,_levelComplete=false;
+function _drawFinishLineHUD(){
+ if(_levelTarget<=0||_finishTriggered)return;
+ const pct=Math.min(score/_levelTarget,1);
+ const bw=LW*0.55,bh=7,bx=(LW-bw)/2,by=52;
+ // bar background
+ CTX.fillStyle='rgba(0,0,0,0.45)';rr(bx-2,by-2,bw+4,bh+4,4);CTX.fill();
+ // fill gradient
+ const barCol=pct>0.8?'#ff4400':pct>0.5?'#ffc107':'#00f2ff';
+ const bg=CTX.createLinearGradient(bx,0,bx+bw,0);
+ bg.addColorStop(0,barCol+'cc');bg.addColorStop(1,barCol);
+ CTX.fillStyle=bg;rr(bx,by,bw*pct,bh,3);CTX.fill();
+ // flag icon at end
+ CTX.font='11px serif';CTX.textAlign='left';CTX.textBaseline='middle';
+ CTX.fillText('🏁',bx+bw+4,by+bh/2);
+ // text label
+ CTX.fillStyle='rgba(255,255,255,0.55)';CTX.font='bold 8px "Exo 2",sans-serif';
+ CTX.textAlign='center';CTX.textBaseline='top';
+ CTX.fillText(`${score} / ${_levelTarget}`,bx+bw/2,by+bh+3);
+ // pulsing warning when 80%+ of the way
+ if(pct>=0.8){
+  const pulse=0.5+0.5*Math.sin(Date.now()*0.008);
+  glow(barCol,12*pulse);
+  CTX.font=`bold ${10+pulse*2|0}px "Exo 2",sans-serif`;CTX.textAlign='center';CTX.textBaseline='top';
+  CTX.fillStyle=barCol;CTX.fillText('FINISH LINE NEAR!',LW/2,by-16);ng();
+ }
+}
 function hitStop(f){_hitStopFrames=Math.max(_hitStopFrames,f|0);}
 function _playerPos(){
  if(cGame==='flappy')return[FB.BX,fb?.by||LH/2];
@@ -1145,6 +1171,10 @@ function _fbDrawPipe(p,lv,GY){
 function _fbGround(lv,gs){
   CTX.fillStyle=lv.ground;CTX.fillRect(0,FB.GY,LW,LH-FB.GY);
   CTX.fillStyle=lv.groundTop;CTX.fillRect(0,FB.GY,LW,9);
+  // 3D front ledge face below top strip
+  const gf=CTX.createLinearGradient(0,FB.GY+9,0,FB.GY+24);
+  gf.addColorStop(0,lv.groundTop+'cc');gf.addColorStop(1,lv.ground+'00');
+  CTX.fillStyle=gf;CTX.fillRect(0,FB.GY+9,LW,15);
   glow(lv.pipeGlow,5);CTX.fillStyle=lv.pipeGlow+'66';CTX.fillRect(0,FB.GY,LW,2);ng();
   CTX.fillStyle='rgba(255,255,255,0.05)';
   for(let dx=-gs%66;dx<LW;dx+=66)CTX.fillRect(dx|0,(FB.GY+11)|0,36,2);
@@ -1210,21 +1240,30 @@ function tickFlappy(){
   const wingBob=Math.sin(fb.tick*0.35)*8;
   const R=FB.BR;
   CTX.save();CTX.translate(FB.BX,fb.by|0);CTX.rotate(ang);CTX.scale(fb.sqX||1,fb.sqY||1);
-  // wing (flapping)
+  // drop shadow beneath bird
+  CTX.fillStyle='rgba(0,0,0,0.18)';CTX.beginPath();CTX.ellipse(2,R*0.55,R*0.65,R*0.18,0,0,Math.PI*2);CTX.fill();
+  // wing — with feather depth (back layer then front)
   CTX.save();CTX.translate(-R*0.3,0);CTX.rotate(wingBob*0.07);
+  CTX.fillStyle='rgba(0,0,0,0.18)';CTX.beginPath();CTX.ellipse(-R*0.5,R*0.1,R*0.9,R*0.35,0.3,0,Math.PI*2);CTX.fill();
   CTX.fillStyle=wCol;CTX.beginPath();CTX.ellipse(-R*0.5,0,R*0.9,R*0.35,0.3,0,Math.PI*2);CTX.fill();
+  // feather lines
+  CTX.strokeStyle='rgba(255,255,255,0.2)';CTX.lineWidth=1.2;
+  for(let f=0;f<3;f++){const fy=-R*0.08+f*R*0.11;CTX.beginPath();CTX.moveTo(-R*0.1,fy);CTX.lineTo(-R*1.28,fy+R*0.04);CTX.stroke();}
   CTX.restore();
-  // body
+  // body — off-center radial for 3D top-light
   glow(bGlow,18);
-  const bg=CTX.createRadialGradient(0,0,R*0.1,0,0,R*0.9);
-  bg.addColorStop(0,bCol+'ff');bg.addColorStop(1,bCol+'88');
+  const bg=CTX.createRadialGradient(-R*0.28,-R*0.32,R*0.04,0,0,R*0.95);
+  bg.addColorStop(0,'rgba(255,255,255,0.55)');bg.addColorStop(0.2,bCol+'ff');bg.addColorStop(1,bCol+'44');
   CTX.fillStyle=bg;CTX.beginPath();CTX.ellipse(0,0,R*0.9,R*0.72,0,0,Math.PI*2);CTX.fill();
-  // beak
-  CTX.fillStyle='#ffcc00';CTX.beginPath();CTX.moveTo(R*0.85,-R*0.12);CTX.lineTo(R*1.3,0);CTX.lineTo(R*0.85,R*0.12);CTX.closePath();CTX.fill();
-  // eye
-  CTX.fillStyle='#fff';CTX.beginPath();CTX.arc(R*0.35,-R*0.22,R*0.22,0,Math.PI*2);CTX.fill();
-  CTX.fillStyle='#111';CTX.beginPath();CTX.arc(R*0.4,-R*0.22,R*0.12,0,Math.PI*2);CTX.fill();
-  CTX.fillStyle='#fff';CTX.beginPath();CTX.arc(R*0.44,-R*0.26,R*0.05,0,Math.PI*2);CTX.fill();
+  // belly shadow (darker underside)
+  CTX.fillStyle='rgba(0,0,0,0.16)';CTX.beginPath();CTX.ellipse(0,R*0.26,R*0.6,R*0.36,0,0,Math.PI*2);CTX.fill();
+  // beak — upper jaw + lower jaw (3D split)
+  CTX.fillStyle='#ffdd00';CTX.beginPath();CTX.moveTo(R*0.8,-R*0.18);CTX.lineTo(R*1.33,-R*0.04);CTX.lineTo(R*0.8,R*0.04);CTX.closePath();CTX.fill();
+  CTX.fillStyle='#cc9900';CTX.beginPath();CTX.moveTo(R*0.8,R*0.04);CTX.lineTo(R*1.28,R*0.07);CTX.lineTo(R*0.8,R*0.18);CTX.closePath();CTX.fill();
+  // eye with depth highlight
+  CTX.fillStyle='#fff';CTX.beginPath();CTX.arc(R*0.35,-R*0.22,R*0.24,0,Math.PI*2);CTX.fill();
+  CTX.fillStyle='#111';CTX.beginPath();CTX.arc(R*0.38,-R*0.22,R*0.14,0,Math.PI*2);CTX.fill();
+  CTX.fillStyle='#fff';CTX.beginPath();CTX.arc(R*0.44,-R*0.28,R*0.06,0,Math.PI*2);CTX.fill();
   ng();CTX.restore();
 
   // trailing particles behind BIRK — color matches skin
@@ -1362,16 +1401,35 @@ function tickGeo(){
   if(hasCeil){
     gd.ceilActive=true;if(!gd.ceilY)gd.ceilY=80;
     glow(lv.obsGlow,8);CTX.fillStyle=lv.fl;CTX.fillRect(0,0,LW,gd.ceilY);
+    // 3D underside of ceiling
+    const cfg=CTX.createLinearGradient(0,gd.ceilY,0,gd.ceilY+14);
+    cfg.addColorStop(0,lv.obsCol+'cc');cfg.addColorStop(1,lv.obsCol+'00');
+    CTX.fillStyle=cfg;CTX.fillRect(0,gd.ceilY,LW,14);
     CTX.fillStyle=lv.obsGlow;CTX.fillRect(0,gd.ceilY-2,LW,2);ng();
   } else if(!lv.ceiling){gd.ceilActive=false;gd.ceilY=0;}
 
   // dark-zone overlay (seg2)
   if(gd.seg===2&&cLevel<6){CTX.save();CTX.globalAlpha=0.45;CTX.fillStyle='#000';CTX.fillRect(0,0,LW,LH);CTX.restore();}
 
-  // ── FLOOR ──
+  // ── FLOOR — 3D perspective runway ──
   CTX.fillStyle=lv.fl;CTX.fillRect(0,FL,LW,LH-FL);
-  CTX.strokeStyle=lv.obsGlow+'22';CTX.lineWidth=1;
-  const tw=44;for(let tx=-(gd.boff%tw);tx<LW;tx+=tw){CTX.beginPath();CTX.moveTo(tx|0,FL);CTX.lineTo(tx|0,LH);CTX.stroke();}
+  // 3D front ledge face of floor
+  const ffg=CTX.createLinearGradient(0,FL,0,FL+18);
+  ffg.addColorStop(0,lv.obsCol+'dd');ffg.addColorStop(1,lv.obsCol+'00');
+  CTX.fillStyle=ffg;CTX.fillRect(0,FL,LW,18);
+  // Perspective grid on floor: horizontal rows spaced by depth
+  for(let i=1;i<=5;i++){
+    const t=i/5,y=FL+(LH-FL)*t;
+    CTX.strokeStyle=lv.obsGlow+(Math.round((0.04+t*0.1)*255).toString(16).padStart(2,'0'));
+    CTX.lineWidth=0.5+t*0.5;
+    CTX.beginPath();CTX.moveTo(0,y|0);CTX.lineTo(LW,y|0);CTX.stroke();
+  }
+  // Scrolling vertical lines converging toward player vanishing point
+  const VPX=GD.PX;
+  CTX.strokeStyle=lv.obsGlow+'18';CTX.lineWidth=0.5;
+  const tw=44;for(let tx=-(gd.boff%tw);tx<LW+tw;tx+=tw){
+    CTX.beginPath();CTX.moveTo((VPX+(tx-VPX)*0.04)|0,FL);CTX.lineTo(tx|0,LH);CTX.stroke();
+  }
   glow(lv.obsGlow,14);CTX.fillStyle=lv.obsGlow;CTX.fillRect(0,FL,LW,2);ng();
 
   // ── ORB RINGS (levels with orbRings) ──
@@ -2006,8 +2064,17 @@ function tickSnake(){
     CTX.fillStyle=`rgba(0,0,0,${0.06+bgInt*0.08})`;
     for(let y=0;y<LH;y+=4)CTX.fillRect(0,y,LW,2);
   }
-  // grid — brightens as snake grows
+  // grid — 3D raised tile look, brightens as snake grows
   const gridA=0.045+bgInt*0.06;
+  // tile top-left highlights and bottom-right shadows for raised look
+  for(let gx=0;gx<LW;gx+=C){
+    for(let gy=0;gy<LH;gy+=C){
+      CTX.fillStyle=`rgba(255,255,255,${gridA*1.8})`;
+      CTX.fillRect(gx,gy,C,1);CTX.fillRect(gx,gy,1,C); // top+left bright
+      CTX.fillStyle=`rgba(0,0,0,${gridA*1.2})`;
+      CTX.fillRect(gx,gy+C-1,C,1);CTX.fillRect(gx+C-1,gy,1,C); // bot+right dark
+    }
+  }
   CTX.strokeStyle=rGl+Math.round(gridA*255).toString(16).padStart(2,'0');CTX.lineWidth=.5;
   for(let x=0;x<=LW;x+=C){CTX.beginPath();CTX.moveTo(x,0);CTX.lineTo(x,LH);CTX.stroke();}
   for(let y=0;y<=LH;y+=C){CTX.beginPath();CTX.moveTo(0,y);CTX.lineTo(LW,y);CTX.stroke();}
@@ -2087,10 +2154,15 @@ function tickSnake(){
     if(i===0){
       const hs=headScale,cx2=bx+C/2,cy2=by+C/2,hw=C*hs,hh=C*(2-hs);
       glow(rGl,18*hs);CTX.save();CTX.translate(cx2,cy2);
+      // head body
       CTX.fillStyle=rHd;rr(-hw/2+1,-hh/2+1,hw-2,hh-2,4);CTX.fill();
+      // 3D head: top-left highlight, bottom-right shadow
+      CTX.fillStyle='rgba(255,255,255,0.28)';CTX.fillRect(-hw/2+2,-hh/2+2,hw-4,3);CTX.fillRect(-hw/2+2,-hh/2+2,3,hh-4);
+      CTX.fillStyle='rgba(0,0,0,0.32)';CTX.fillRect(-hw/2+2,hh/2-5,hw-4,3);CTX.fillRect(hw/2-5,-hh/2+2,3,hh-4);
+      // center armor plate
+      const hg2=CTX.createLinearGradient(-4,-4,4,4);hg2.addColorStop(0,rGl+'66');hg2.addColorStop(1,rGl+'11');
+      CTX.fillStyle=hg2;rr(-3,-3,6,6,2);CTX.fill();
       CTX.restore();ng();
-      // scale highlight
-      CTX.fillStyle=`rgba(255,255,255,0.15)`;CTX.fillRect(bx+3,by+3,C-6,5);
       const dx=sn.dir.x,dy=sn.dir.y;
       let e1x,e1y,e2x,e2y;
       if(dx===1){e1x=bx+C-8;e1y=by+4;e2x=bx+C-8;e2y=by+C-8;}
@@ -2105,8 +2177,11 @@ function tickSnake(){
       const r2=Math.round(br+(hr-br)*t*0.2),g2=Math.round(bg_+(hg-bg_)*t*0.2),b2=Math.round(bb+(hb-bb)*t*0.2);
       CTX.shadowColor=i===1?rGl+'55':'transparent';CTX.shadowBlur=i===1?8:0;
       CTX.fillStyle=`rgba(${r2},${g2},${b2},${a})`;rr(bx+2,by+2,C-4,C-4,3);CTX.fill();
-      // scale pattern
-      if(i%2===0&&a>0.4){CTX.fillStyle=`rgba(255,255,255,${a*0.08})`;CTX.fillRect(bx+4,by+4,C-8,4);}
+      // 3D raised segment: top-left highlight, bottom-right shadow
+      CTX.fillStyle=`rgba(255,255,255,${a*0.22})`;CTX.fillRect(bx+3,by+3,C-6,2);CTX.fillRect(bx+3,by+3,2,C-6);
+      CTX.fillStyle=`rgba(0,0,0,${a*0.3})`;CTX.fillRect(bx+3,by+C-5,C-6,2);CTX.fillRect(bx+C-5,by+3,2,C-6);
+      // scale dot pattern every other segment
+      if(i%2===0&&a>0.4){CTX.fillStyle=`rgba(255,255,255,${a*0.1})`;CTX.beginPath();CTX.arc(bx+C/2,by+C/2,C*0.22,0,Math.PI*2);CTX.fill();}
       CTX.shadowBlur=0;
     }
   }
@@ -2365,24 +2440,36 @@ function tickDoodle(){
   CTX.scale(dj.facingR?1:-1,1);
   CTX.scale(2-dj.squash,dj.squash);
   glow(pGl,20);
-  // spring coil beneath
-  CTX.strokeStyle=pGl+'aa';CTX.lineWidth=2.5;
+  // cast shadow
+  CTX.fillStyle='rgba(0,0,0,0.2)';CTX.beginPath();CTX.ellipse(1,18,10,3.5,0,0,Math.PI*2);CTX.fill();
+  // back legs (drawn first, behind body)
+  CTX.strokeStyle=pBd+'77';CTX.lineWidth=5;CTX.lineCap='round';
+  CTX.beginPath();CTX.moveTo(-5,5);CTX.quadraticCurveTo(-15,11,-13,17);CTX.stroke();
+  CTX.beginPath();CTX.moveTo(5,5);CTX.quadraticCurveTo(15,11,13,17);CTX.stroke();
+  // spring coil beneath — with highlight side
+  CTX.strokeStyle='rgba(0,0,0,0.25)';CTX.lineWidth=3;
+  CTX.beginPath();for(let i=0;i<4;i++){CTX.arc(1,17+i*5,(4-i)*2.5+2,Math.PI,0,i%2===0);}CTX.stroke();
+  CTX.strokeStyle=pGl+'cc';CTX.lineWidth=2.5;
   CTX.beginPath();for(let i=0;i<4;i++){CTX.arc(0,16+i*5,(4-i)*2.5+2,Math.PI,0,i%2===0);}CTX.stroke();
-  // body
-  const pg=CTX.createRadialGradient(0,-2,2,0,-2,14);
-  pg.addColorStop(0,pBd+'ff');pg.addColorStop(1,pBd+'bb');
+  // body — off-center highlight for 3D
+  const pg=CTX.createRadialGradient(-4,-8,1,-1,-4,15);
+  pg.addColorStop(0,'rgba(255,255,255,0.48)');pg.addColorStop(0.22,pBd+'ff');pg.addColorStop(1,pBd+'88');
   CTX.fillStyle=pg;CTX.beginPath();CTX.ellipse(0,-4,14,12,0,0,Math.PI*2);CTX.fill();
-  // eyes
+  // belly shadow
+  CTX.fillStyle='rgba(0,0,0,0.18)';CTX.beginPath();CTX.ellipse(0,2,10,5,0,0,Math.PI*2);CTX.fill();
+  // front legs (drawn over body)
+  CTX.strokeStyle=pBd;CTX.lineWidth=4;CTX.lineCap='round';
+  CTX.beginPath();CTX.moveTo(-5,5);CTX.quadraticCurveTo(-12,10,-10,15);CTX.stroke();
+  CTX.beginPath();CTX.moveTo(5,5);CTX.quadraticCurveTo(12,10,10,15);CTX.stroke();
+  // eyes — with 3D shading
   CTX.fillStyle=pEy;CTX.beginPath();CTX.arc(-5,-8,5,0,Math.PI*2);CTX.fill();
   CTX.beginPath();CTX.arc(5,-8,5,0,Math.PI*2);CTX.fill();
+  CTX.fillStyle='rgba(0,0,0,0.15)';CTX.beginPath();CTX.ellipse(-5,-6,4,2.5,0,0,Math.PI);CTX.fill();
+  CTX.beginPath();CTX.ellipse(5,-6,4,2.5,0,0,Math.PI);CTX.fill();
   CTX.fillStyle='#222';CTX.beginPath();CTX.arc(-4,-8,3,0,Math.PI*2);CTX.fill();
   CTX.beginPath();CTX.arc(6,-8,3,0,Math.PI*2);CTX.fill();
   CTX.fillStyle='#fff';CTX.beginPath();CTX.arc(-3,-9,1.2,0,Math.PI*2);CTX.fill();
   CTX.beginPath();CTX.arc(7,-9,1.2,0,Math.PI*2);CTX.fill();
-  // legs
-  CTX.strokeStyle=pBd;CTX.lineWidth=4;
-  CTX.beginPath();CTX.moveTo(-6,6);CTX.lineTo(-12,14);CTX.stroke();
-  CTX.beginPath();CTX.moveTo(6,6);CTX.lineTo(12,14);CTX.stroke();
   ng();CTX.restore();
 
   PARTS.update();PARTS.draw();
@@ -2560,6 +2647,7 @@ function openGame(gameId,levelId){
  $("govl-title").style.textShadow=`0 0 18px ${info.c}`;
  $("govl-btn").style.borderColor=info.c;$("govl-btn").style.color=info.c;
  $("govl-btn").textContent="▶  PLAY";
+ $("govl-btn").onclick=startGame; // reset in case prior level-complete changed it
  $("govl-stats").classList.add("hidden");$("govl-stats").innerHTML="";
  $("govl-hint").textContent=info.hint;
  $("govl").classList.remove("hidden");
@@ -2665,6 +2753,8 @@ function startGame(){
    PARTS.emit(tx,ty,{n:2,colors:_tItem.trail,s0:0.4,s1:1.8,grav:0.02,up:0.3,d0:0.035,d1:0.065});
   }
   _loopTick++;
+  // ── FINISH LINE HUD ──────────────────────────────────────
+  _drawFinishLineHUD();
   // ── IMPACT FLASH — white overlay on heavy hits ──────────
   if(_impactFlash>0){
    if(!store.settings?.epilepsy){CTX.fillStyle=`rgba(255,255,255,${_impactFlash*0.055})`;CTX.fillRect(0,0,LW,LH);}
