@@ -367,6 +367,13 @@ const SHOP_D=[
  {id:"coins_md",    type:"coins",   name:"STASH",    desc:"550 coins",                 price:"$3.99",icon:"💰",coins:550},
  {id:"coins_lg",    type:"coins",   name:"VAULT",    desc:"1400 coins",                price:"$7.99",icon:"🏦",coins:1400},
 ];
+const LV_TARGETS={
+ flappy:[5,8,12,16,20,25],
+ geo:   [5,8,12,16,20,25,30,40],
+ temple:[8,12,18,25,35],
+ snake: [10],
+ doodle:[150,250,400]
+};
 const GEO_LV=[
  {id:1,name:"STEREO MADNESS",diff:"EASY",   color:"#00f2ff",bg0:"#010810",bg1:"#020f1e",fl:"#0a1a2e",ln:"#00f2ff",bpm:130,bgStyle:"stars",  obsCol:"#00b8cc",obsGlow:"#00f2ff",ambient:"stars"},
  {id:2,name:"BACK ON TRACK", diff:"EASY",   color:"#00e89a",bg0:"#010a02",bg1:"#021004",fl:"#0a1e0a",ln:"#00e89a",bpm:142,bgStyle:"forest", obsCol:"#00aa55",obsGlow:"#00e89a",ambient:"fireflies"},
@@ -430,17 +437,20 @@ const ACHIEVEMENTS=[
 /* ── STORE ── */
 const FREE_ITEMS=["skin_default","birk_default","zeph_default","rex_default","pogo_default","trail_none"];
 const DEFAULT_EQ={skin:"skin_default",skin_flappy:"birk_default",skin_temple:"zeph_default",skin_snake:"rex_default",skin_doodle:"pogo_default",trail:"trail_none",powerup:"none"};
+const DEFAULT_UNLOCKED={flappy:1,geo:1,temple:1,snake:1,doodle:1};
 function loadStore(){
  try{const s=JSON.parse(localStorage.getItem("av5")||"{}");
   return{coins:150,bests:{},coinsEarned:0,
    owned:FREE_ITEMS,
    equipped:DEFAULT_EQ,
+   unlocked:DEFAULT_UNLOCKED,
    lastLogin:null,loginStreak:0,achievements:{},dailyDone:null,
    ...s,
    equipped:{...DEFAULT_EQ,...(s.equipped||{})},
    owned:[...new Set([...FREE_ITEMS,...(s.owned||[])])],
-   achievements:{...(s.achievements||{})}};
- }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ,lastLogin:null,loginStreak:0,achievements:{},dailyDone:null};}
+   achievements:{...(s.achievements||{})},
+   unlocked:{...DEFAULT_UNLOCKED,...(s.unlocked||{})}};
+ }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ,unlocked:DEFAULT_UNLOCKED,lastLogin:null,loginStreak:0,achievements:{},dailyDone:null};}
 }
 function saveStore(){try{localStorage.setItem("av5",JSON.stringify(store));}catch(_){}}
 let store=loadStore();
@@ -554,13 +564,17 @@ function showLvlList(gid){
  $("lvllist").innerHTML="";
  lvs.forEach((lv,i)=>{
   const c=lv.color||lv.rail||meta.c;
-  const best=store.bests?.[`${gid}_${lv.id}`]||0;
-  const locked=false;
+  const lvId=lv.id||(i+1);
+  const best=store.bests?.[`${gid}_${lvId}`]||0;
+  const target=LV_TARGETS[gid]?.[i]||0;
+  const maxUnlocked=store.unlocked?.[gid]||1;
+  const locked=lvId>maxUnlocked;
   const d=document.createElement("button");d.className="lr"+(locked?" locked":"");
-  d.innerHTML=`<div style="width:44px;height:44px;border-radius:12px;background:${c}16;border:1.5px solid ${c}44;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${lv.icon||i+1}</div><div style="flex:1;text-align:left;"><div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:13px;color:${locked?"rgba(255,255,255,.4)":"rgba(255,255,255,.9)"};letter-spacing:.06em;">${lv.name}</div><div style="display:flex;gap:10px;margin-top:4px;align-items:center;">${lv.diff?`<span style="font-family:Rajdhani,sans-serif;font-weight:600;font-size:10px;color:${DC[lv.diff]||c};letter-spacing:.1em;">${lv.diff}</span>`:""} ${lv.bpm?`<span style="font-family:Rajdhani,sans-serif;font-size:10px;color:rgba(255,255,255,.28);">♩${lv.bpm}</span>`:""}</div></div><div style="text-align:right;flex-shrink:0;">${locked?`<div style="font-family:Exo 2,sans-serif;font-size:9px;color:#ffc107;">🔒</div>`:`<div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:18px;color:rgba(255,255,255,.85);">${best}</div><div style="font-family:Rajdhani,sans-serif;font-size:9px;color:rgba(255,255,255,.28);">BEST</div>`}</div>`;
+  const targLabel=target>0?`<span style="font-family:Rajdhani,sans-serif;font-size:10px;color:${c}88;">🎯 ${target}</span>`:'';
+  d.innerHTML=`<div style="width:44px;height:44px;border-radius:12px;background:${c}16;border:1.5px solid ${c}44;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${lv.icon||i+1}</div><div style="flex:1;text-align:left;"><div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:13px;color:${locked?"rgba(255,255,255,.4)":"rgba(255,255,255,.9)"};letter-spacing:.06em;">${lv.name}</div><div style="display:flex;gap:10px;margin-top:4px;align-items:center;">${lv.diff?`<span style="font-family:Rajdhani,sans-serif;font-weight:600;font-size:10px;color:${DC[lv.diff]||c};letter-spacing:.1em;">${lv.diff}</span>`:""} ${lv.bpm?`<span style="font-family:Rajdhani,sans-serif;font-size:10px;color:rgba(255,255,255,.28);">♩${lv.bpm}</span>`:""} ${targLabel}</div></div><div style="text-align:right;flex-shrink:0;">${locked?`<div style="font-family:Exo 2,sans-serif;font-size:9px;color:#ffc107;">🔒</div>`:`<div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:18px;color:rgba(255,255,255,.85);">${best}</div><div style="font-family:Rajdhani,sans-serif;font-size:9px;color:rgba(255,255,255,.28);">BEST</div>`}</div>`;
   d.onmouseenter=()=>{if(!locked){d.style.borderColor=`${c}77`;d.style.transform="translateX(4px)";}};
   d.onmouseleave=()=>{d.style.borderColor="rgba(255,255,255,.07)";d.style.transform="";};
-  if(!locked)d.onclick=()=>openGame(gid,lv.id);
+  if(!locked)d.onclick=()=>openGame(gid,lvId);
   $("lvllist").appendChild(d);
  });
 }
@@ -703,6 +717,7 @@ const SM={
 let _hitStopFrames=0,_scoreDisplay=0,_scoreTarget=0,_lastFrameT=0;
 let _dyingFrames=0,_impactFlash=0,_goNewBest=false,_goBk='';
 let _loopTick=0,_shieldUsed=false;
+let _levelTarget=0,_finishTriggered=false,_levelComplete=false;
 function hitStop(f){_hitStopFrames=Math.max(_hitStopFrames,f|0);}
 function _playerPos(){
  if(cGame==='flappy')return[FB.BX,fb?.by||LH/2];
@@ -727,6 +742,7 @@ function setScore(n){
  PARTS.emit(px,py,{n:7,type:'sparks',colors:['#ffc107','#ffffff','#ffee44'],s0:2,s1:6,up:2.5});
  const el=$("ghsc");
  el.classList.remove("scorepop");void el.offsetWidth;el.classList.add("scorepop");
+ _checkFinishLine();
 }
 function addCoin(n){
  const mult=store.equipped?.powerup==="pw_double"?2:1;
@@ -757,18 +773,75 @@ function gameOver(){
  // loop continues in slow-mo dying mode; overlay shown when _dyingFrames hits 0
  _dyingFrames=24;
 }
+function _checkFinishLine(){
+ if(_levelTarget>0&&!_finishTriggered&&score>=_levelTarget){
+  _finishTriggered=true;
+  _triggerFinishLine();
+ }
+}
+function _triggerFinishLine(){
+ // celebrate: burst particles + canvas flash
+ const[px,py]=_playerPos();
+ PARTS.emit(px,py,{n:40,type:'sparks',s0:3,s1:12,up:3,colors:['#ffd700','#ffffff','#00f2ff','#ff00cc']});
+ PARTS.emit(px,py,{n:20,type:'fire',s0:3,s1:8,up:2});
+ shake(14);haptic(60);
+ // unlock next level
+ const lvIdx=(LV_TARGETS[cGame]||[]).indexOf(_levelTarget);
+ const nextLv=lvIdx+2; // levels are 1-based
+ const maxLvs=(LV_TARGETS[cGame]||[]).length;
+ if(lvIdx>=0&&nextLv<=maxLvs+1){
+  const prevMax=store.unlocked?.[cGame]||1;
+  if(nextLv>prevMax){
+   store.unlocked={...store.unlocked,[cGame]:nextLv};
+   saveStore();
+  }
+ }
+ // coin reward
+ const coinReward=20+_levelTarget*2;
+ addCoin(coinReward);
+ _levelComplete=true;
+ // stop the game loop after short delay
+ setTimeout(()=>{
+  if(!SM.go('dead'))return;
+  _goNewBest=false;_goBk=`${cGame}_${cLevel}`;
+  const prev=store.bests?.[_goBk]||0;
+  _goNewBest=score>prev;
+  store.bests={...store.bests,[_goBk]:Math.max(prev,score),[cGame]:Math.max(store.bests?.[cGame]||0,score)};
+  saveStore();
+  checkGameAchievements();
+  checkDailyChallenge();
+  _dyingFrames=0;
+  _showGameOverOverlay();
+ },1800);
+}
 function _showGameOverOverlay(){
  cancelAnimationFrame(rafId);
- $("govl-icon").textContent=_goNewBest?'🏆':'💀';
- $("govl-title").textContent=_goNewBest?'NEW BEST!':'GAME OVER';
- $("govl-title").style.color=_goNewBest?'var(--gold)':'var(--pink)';
- $("govl-title").style.textShadow=_goNewBest?'0 0 18px var(--gold)':'0 0 18px var(--pink)';
+ if(_levelComplete){
+  $("govl-icon").textContent='🏁';
+  $("govl-title").textContent='LEVEL COMPLETE!';
+  $("govl-title").style.color='var(--gold)';
+  $("govl-title").style.textShadow='0 0 22px var(--gold)';
+ } else {
+  $("govl-icon").textContent=_goNewBest?'🏆':'💀';
+  $("govl-title").textContent=_goNewBest?'NEW BEST!':'GAME OVER';
+  $("govl-title").style.color=_goNewBest?'var(--gold)':'var(--pink)';
+  $("govl-title").style.textShadow=_goNewBest?'0 0 18px var(--gold)':'0 0 18px var(--pink)';
+ }
  $("govl-stats").innerHTML=`
   <div class="gs-stat"><div class="sl">SCORE</div><div class="sv">${score}</div></div>
   <div class="gs-stat${_goNewBest?' gold':''}"><div class="sl">BEST</div><div class="sv">${store.bests[_goBk]}</div></div>
   ${sessionCoins>0?`<div class="gs-stat gold"><div class="sl">EARNED</div><div class="sv">🪙${sessionCoins}</div></div>`:''}`;
  $("govl-stats").classList.remove("hidden");
- $("govl-btn").textContent='↺  RETRY';
+ if(_levelComplete){
+  const nextLv=cLevel+1;
+  const maxLvs=(LV_TARGETS[cGame]||[]).length;
+  const hasNext=nextLv<=maxLvs;
+  $("govl-btn").textContent=hasNext?'▶  NEXT LEVEL':'↺  PLAY AGAIN';
+  $("govl-btn").onclick=hasNext?()=>{_levelComplete=false;openGame(cGame,nextLv);}:startGame;
+ } else {
+  $("govl-btn").textContent='↺  RETRY';
+  $("govl-btn").onclick=startGame;
+ }
  const govl=$("govl");
  govl.classList.remove("hidden","go-enter");void govl.offsetWidth;
  govl.classList.add("go-enter");govl.classList.remove("hidden");
@@ -1496,7 +1569,7 @@ function _trBg(biome,tick){
 }
 
 function tickTemple(){
-  tr.tick++;tr.spd=1.7+tr.tick*0.0013+(tr.boostTimer>0?1.2:0);
+  tr.tick++;tr.spd=Math.min(0.9+tr.tick*0.0022,4.5)+(tr.boostTimer>0?1.2:0);
   if(tr.cool>0)tr.cool--;
   if(tr.hitCool>0)tr.hitCool--;
   if(tr.boostTimer>0){tr.boostTimer--;tr.boostFlash=(tr.boostTimer%8<4)?1:0;}else{tr.boostFlash=0;}
@@ -1647,21 +1720,32 @@ function tickTemple(){
   const zephSkin=SHOP_D.find(s=>s.id===(store.equipped?.skin_temple||'zeph_default'))||SHOP_D.find(s=>s.id==='zeph_default');
   const zBd=zephSkin.boardCol||'#003366',zRd=zephSkin.riderCol||'#4488cc',zGl=zephSkin.glow||biome.rail;
   const px=tr.lerpX|0,py=TR_PLY;
-  const bob=Math.sin(tr.tick*0.28)*2.5;
-  CTX.save();CTX.translate(px,py+bob|0);CTX.rotate(tr.lean);CTX.scale(tr.sqX||1,tr.sqY||1);
+  const bob=Math.sin(tr.tick*0.28)*2;
+  CTX.save();CTX.translate(px,(py+bob)|0);CTX.rotate(tr.lean);CTX.scale(tr.sqX||1,tr.sqY||1);
   if(tr.hitCool>0&&tr.hitCool%10<5)CTX.globalAlpha=0.4;
-  glow(zGl,18);
-  // board
-  CTX.fillStyle=zBd;rr(-20,-4,40,9,4);CTX.fill();
-  CTX.fillStyle=zGl+'88';CTX.fillRect(-18,-2,36,2);
-  // rider body
-  CTX.fillStyle=zRd;rr(-8,-28,16,24,4);CTX.fill();
-  // helmet
-  CTX.fillStyle=zGl;CTX.beginPath();CTX.arc(-2,-30,10,0,Math.PI*2);CTX.fill();
-  CTX.fillStyle='rgba(0,0,0,0.5)';CTX.beginPath();CTX.arc(-2,-30,7,0.4,2.4);CTX.fill();// visor
-  // trail
-  if(tr.tick%2===0)PARTS.emit(px,py-4,{n:2,type:'sparks',colors:[zGl],s0:1,s1:3,up:0.5});
+  // hoverboard glow underneath (at y=0 = floor level)
+  const hbg=CTX.createRadialGradient(0,3,0,0,3,30);
+  hbg.addColorStop(0,zGl+'55');hbg.addColorStop(1,'rgba(0,0,0,0)');
+  CTX.fillStyle=hbg;CTX.fillRect(-30,0,60,16);
+  glow(zGl,14);
+  // board — bottom at y=0, top at y=-11 (sits on track surface)
+  CTX.fillStyle=zBd;rr(-23,-11,46,11,5);CTX.fill();
+  CTX.fillStyle=zGl+'bb';CTX.fillRect(-21,-5,42,3);// shine strip
+  // legs (bent-knee snowboarder stance, from board top at y=-11 up)
+  CTX.strokeStyle=zRd;CTX.lineWidth=4;CTX.lineCap='round';CTX.lineJoin='round';
+  CTX.beginPath();CTX.moveTo(-7,-11);CTX.quadraticCurveTo(-11,-19,-7,-24);CTX.stroke();
+  CTX.beginPath();CTX.moveTo(7,-11);CTX.quadraticCurveTo(11,-19,7,-24);CTX.stroke();
+  // body (torso)
+  CTX.fillStyle=zRd;rr(-9,-42,18,18,4);CTX.fill();
+  // arm extended forward
+  CTX.strokeStyle=zRd;CTX.lineWidth=3.5;
+  CTX.beginPath();CTX.moveTo(9,-38);CTX.lineTo(19,-30);CTX.stroke();
+  // helmet/head
+  CTX.fillStyle=zGl+'dd';CTX.beginPath();CTX.arc(0,-48,10,0,Math.PI*2);CTX.fill();
+  CTX.fillStyle='rgba(0,0,0,0.6)';CTX.beginPath();CTX.arc(0,-48,8,0.5,2.3);CTX.fill();
   ng();CTX.restore();
+  // board trail sparks from underside
+  if(tr.tick%2===0)PARTS.emit(px,py+2,{n:2,type:'sparks',colors:[zGl],s0:1,s1:3,grav:0.08,up:-0.1});
 
   PARTS.update();PARTS.draw();
 
@@ -2346,6 +2430,9 @@ function startGame(){
  score=0;sessionCoins=0;
  _scoreDisplay=0;_scoreTarget=0;_hitStopFrames=0;_lastFrameT=0;_dyingFrames=0;_impactFlash=0;
  _loopTick=0;_shieldUsed=false;
+ _finishTriggered=false;_levelComplete=false;
+ const _lvIdx=(LV_TARGETS[cGame]||[]).length>0?cLevel-1:0;
+ _levelTarget=(LV_TARGETS[cGame]||[])[_lvIdx]||0;
  $("ghsc").textContent="0";
  $("ghcoin").style.display="none";$("ghcoin").textContent="";
  $("govl").classList.add("hidden");
