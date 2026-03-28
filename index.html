@@ -148,6 +148,17 @@ button{outline:none;font-family:inherit;cursor:pointer;}
 .lm-dot{width:28px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);}
 .lm-dot.on{background:var(--gold);box-shadow:0 0 8px var(--gold);}
 
+/* ACCESSIBILITY MODAL */
+#a11y-modal{position:fixed;inset:0;z-index:650;display:flex;align-items:flex-end;background:rgba(0,0,0,0.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.a11y-sheet{width:100%;background:linear-gradient(180deg,#12122e 0%,#06060e 100%);border-radius:28px 28px 0 0;padding:28px 24px max(34px,env(safe-area-inset-bottom));}
+.a11y-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);}
+.a11y-row:last-child{border-bottom:none;}
+.a11y-label{flex:1;}
+.a11y-title{font-family:'Exo 2',sans-serif;font-weight:700;font-size:13px;color:rgba(255,255,255,.9);letter-spacing:.05em;}
+.a11y-desc{font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,.38);margin-top:3px;line-height:1.4;}
+.a11y-toggle{min-width:64px;padding:8px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);font-family:'Exo 2',sans-serif;font-weight:700;font-size:11px;letter-spacing:.08em;transition:all .2s;}
+.a11y-toggle.on{background:rgba(0,242,255,.18);border-color:#00f2ff;color:#00f2ff;}
+
 /* ACHIEVEMENT UNLOCK TOAST */
 #ach-toast{position:fixed;bottom:calc(var(--sb) + 82px);left:50%;transform:translateX(-50%) translateY(16px);z-index:550;min-width:260px;max-width:330px;padding:13px 18px;border-radius:14px;background:linear-gradient(135deg,rgba(168,85,247,.22),rgba(0,0,0,.8));border:1.5px solid rgba(168,85,247,.5);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;display:flex;align-items:center;gap:12px;backdrop-filter:blur(10px);}
 #ach-toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -208,6 +219,30 @@ button{outline:none;font-family:inherit;cursor:pointer;}
  </div>
 </div>
 
+<!-- ACCESSIBILITY MODAL -->
+<div id="a11y-modal" class="hidden" onclick="if(event.target===this)closeA11y()">
+ <div class="a11y-sheet">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+   <div style="font-family:'Exo 2',sans-serif;font-weight:800;font-size:15px;letter-spacing:.12em;color:#fff;">⚙️ ACCESSIBILITY</div>
+   <button onclick="closeA11y()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 13px;color:rgba(255,255,255,.5);font-family:'Exo 2',sans-serif;font-size:11px;font-weight:600;">DONE</button>
+  </div>
+  <div class="a11y-row">
+   <div class="a11y-label">
+    <div class="a11y-title">COLORBLIND MODE</div>
+    <div class="a11y-desc">High contrast grayscale. Works for all color vision types.</div>
+   </div>
+   <button class="a11y-toggle" id="a11y-cb" onclick="toggleA11y('colorblind')">OFF</button>
+  </div>
+  <div class="a11y-row">
+   <div class="a11y-label">
+    <div class="a11y-title">EPILEPSY SAFE</div>
+    <div class="a11y-desc">Removes screen shake, flash effects, and strobing.</div>
+   </div>
+   <button class="a11y-toggle" id="a11y-ep" onclick="toggleA11y('epilepsy')">OFF</button>
+  </div>
+ </div>
+</div>
+
 <!-- ═══ HUB ═══ -->
 
 <div id="s-hub" class="screen">
@@ -217,7 +252,7 @@ button{outline:none;font-family:inherit;cursor:pointer;}
    <div class="lp" style="font-family:Exo 2,sans-serif;font-weight:900;font-size:clamp(22px,6.5vw,46px);letter-spacing:.18em;color:var(--cyan);">ARCADE VAULT</div>
    <div style="font-family:Rajdhani,sans-serif;font-size:11px;letter-spacing:.35em;color:rgba(255,255,255,.26);margin-top:7px;">5 GAMES · LEVELS · EARN COINS</div>
   </div>
-  <div style="display:flex;justify-content:center;margin-bottom:22px;"><div class="cb"><span style="font-size:15px;">🪙</span><span id="hub-coins">0</span></div></div>
+  <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:22px;"><div class="cb"><span style="font-size:15px;">🪙</span><span id="hub-coins">0</span></div><button onclick="openA11y()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 11px;font-size:14px;">⚙️</button></div>
   <div style="font-family:Exo 2,sans-serif;font-weight:700;font-size:9px;letter-spacing:.24em;color:rgba(255,255,255,.28);margin-bottom:13px;text-transform:uppercase;">Quick Play</div>
   <div class="hub-grid" id="hub-cards"></div>
   <div style="height:16px;"></div>
@@ -449,8 +484,9 @@ function loadStore(){
    equipped:{...DEFAULT_EQ,...(s.equipped||{})},
    owned:[...new Set([...FREE_ITEMS,...(s.owned||[])])],
    achievements:{...(s.achievements||{})},
-   unlocked:{...DEFAULT_UNLOCKED,...(s.unlocked||{})}};
- }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ,unlocked:DEFAULT_UNLOCKED,lastLogin:null,loginStreak:0,achievements:{},dailyDone:null};}
+   unlocked:{...DEFAULT_UNLOCKED,...(s.unlocked||{})},
+   settings:{colorblind:false,epilepsy:false,...(s.settings||{})}};
+ }catch(_){return{coins:150,bests:{},coinsEarned:0,owned:FREE_ITEMS,equipped:DEFAULT_EQ,unlocked:DEFAULT_UNLOCKED,lastLogin:null,loginStreak:0,achievements:{},dailyDone:null,settings:{colorblind:false,epilepsy:false}};}
 }
 function saveStore(){try{localStorage.setItem("av5",JSON.stringify(store));}catch(_){}}
 let store=loadStore();
@@ -903,7 +939,7 @@ const SFX=new AudioEngine();
 
 /* ── SCREEN SHAKE ── */
 let _shakePow=0,_shakeX=0,_shakeY=0;
-function shake(p){_shakePow=Math.max(_shakePow,p);hitStop(Math.round(p/3));if(p>=6)_impactFlash=Math.max(_impactFlash,Math.round(p/2));}
+function shake(p){if(store.settings?.epilepsy)return;_shakePow=Math.max(_shakePow,p);hitStop(Math.round(p/3));if(p>=6)_impactFlash=Math.max(_impactFlash,Math.round(p/2));}
 function _applyShake(){
  if(_shakePow<0.1){_shakeX=_shakeY=_shakePow=0;return;}
  _shakeX=(Math.random()-.5)*_shakePow*2;
@@ -1564,7 +1600,7 @@ function _trBg(biome,tick){
       for(let j=0;j<3;j++){const jx=cx+j*44-LW*(cx>LW-100?1:0);CTX.beginPath();CTX.ellipse(jx,cy,34,16,0,0,Math.PI*2);CTX.fill();}
     }
     // lightning flash
-    if(tick%180>175){CTX.fillStyle='rgba(180,220,255,0.18)';CTX.fillRect(0,0,LW,LH);}
+    if(!store.settings?.epilepsy&&tick%180>175){CTX.fillStyle='rgba(180,220,255,0.18)';CTX.fillRect(0,0,LW,LH);}
   }
 }
 
@@ -2500,8 +2536,7 @@ function startGame(){
   _loopTick++;
   // ── IMPACT FLASH — white overlay on heavy hits ──────────
   if(_impactFlash>0){
-   CTX.fillStyle=`rgba(255,255,255,${_impactFlash*0.055})`;
-   CTX.fillRect(0,0,LW,LH);
+   if(!store.settings?.epilepsy){CTX.fillStyle=`rgba(255,255,255,${_impactFlash*0.055})`;CTX.fillRect(0,0,LW,LH);}
    _impactFlash--;
   }
   CTX.restore();
