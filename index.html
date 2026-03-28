@@ -109,8 +109,28 @@ button{outline:none;font-family:inherit;cursor:pointer;}
 .hitanim{animation:hit .35s ease-out;}
 
 /* SCORE FLASH */
-@keyframes sf{0%{transform:scale(1.45)}100%{transform:scale(1)}}
-.flash{animation:sf .2s ease-out forwards;}
+@keyframes sf{0%{transform:scale(1.55) translateY(-2px)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+.flash{animation:sf .28s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+
+/* CINEMATIC CURTAIN — covers canvas during transitions */
+#gs-curtain{position:absolute;inset:0;z-index:90;background:#030308;pointer-events:none;transition:opacity .22s cubic-bezier(.4,0,.2,1);opacity:1;}
+#gs-curtain.open{opacity:0;}
+
+/* SCREEN ENTER — nav screens fade+slide in */
+.scr-enter{animation:scr-in .22s cubic-bezier(0.34,1.1,0.64,1) both;}
+@keyframes scr-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* GAME-OVER overlay entrance */
+#govl.go-enter{animation:govl-in .3s cubic-bezier(0.34,1.2,0.64,1) both;}
+@keyframes govl-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+/* BUTTON SPRING — all interactive buttons */
+.hc:active,.gr:active,.lr:active,.nb:active{transform:scale(.92)!important;transition:transform .08s!important;}
+.hc,.gr,.lr,.nb{transition:transform .38s cubic-bezier(0.34,1.56,0.64,1),box-shadow .13s,border-color .13s,background .13s;}
+
+/* SCORE POP — score value in header jumps */
+@keyframes scorepop{0%{transform:scale(1.6) translateY(-3px);color:#fff}60%{transform:scale(1.1)}100%{transform:scale(1);}}
+.scorepop{animation:scorepop .32s cubic-bezier(0.34,1.56,0.64,1) forwards;}
 
 /* LOGO */
 .lp{animation:lp 3.2s ease-in-out infinite;}
@@ -217,6 +237,7 @@ button{outline:none;font-family:inherit;cursor:pointer;}
  <div id="cwrap">
   <canvas id="gc2"></canvas>
   <div id="dpad"></div>
+  <div id="gs-curtain"></div>
   <div id="govl">
    <div id="govl-icon" style="font-size:60px;line-height:1;">🔷</div>
    <div id="govl-title">GEO DASH</div>
@@ -556,6 +577,29 @@ const LW=390,LH=700;
 
 let cGame="",cLevel=1,phase="idle",score=0,sessionCoins=0,rafId=null;
 
+/* ── EVENT BUS ── */
+const EVT={
+  _h:{},
+  on(e,fn){(this._h[e]??=[]).push(fn);},
+  off(e,fn){this._h[e]=this._h[e]?.filter(f=>f!==fn);},
+  emit(e,...a){this._h[e]?.slice().forEach(fn=>{try{fn(...a);}catch(_){}});}
+};
+
+/* ── STATE MACHINE ── */
+const _SM_TX={idle:['playing'],playing:['dead'],dead:['playing','idle']};
+const SM={
+  get state(){return phase;},
+  is(s){return phase===s;},
+  go(s){
+    if(!_SM_TX[phase]?.includes(s))return false;
+    phase=s;EVT.emit('statechange',s);return true;
+  }
+};
+
+/* ── HITSTOP & SCORE ROLL state ── */
+let _hitStopFrames=0,_scoreDisplay=0,_scoreTarget=0,_lastFrameT=0;
+function hitStop(f){_hitStopFrames=Math.max(_hitStopFrames,f|0);}
+
 function resizeCvs(){
  const sc=Math.min(WRAP.clientWidth/LW,WRAP.clientHeight/LH);
  CVS.width=LW;CVS.height=LH;
@@ -566,8 +610,10 @@ function resizeCvs(){
 window.addEventListener("resize",()=>{if(cGame)resizeCvs();});
 
 function setScore(n){
- score=n;const el=$("ghsc");el.textContent=n;
- el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");
+ score=n;_scoreTarget=n;
+ // flash animation (textContent updated by roll loop)
+ const el=$("ghsc");
+ el.classList.remove("scorepop");void el.offsetWidth;el.classList.add("scorepop");
 }
 function addCoin(n){
  const mult=store.equipped?.powerup==="pw_double"?2:1;
@@ -576,26 +622,37 @@ function addCoin(n){
  $("ghcoin").style.display="";$("ghcoin").textContent=`🪙+${sessionCoins}`;
 }
 function gameOver(){
- phase="dead";cancelAnimationFrame(rafId);haptic(40);
+ if(!SM.go('dead'))return; // guard: only run once
+ cancelAnimationFrame(rafId);haptic(40);
  SFX.death();shake(18);
- // particle explosion at player position
+ EVT.emit('gameover',{game:cGame,score});
  const px=cGame==="flappy"?FB.BX:cGame==="geo"?GD.PX:cGame==="doodle"?(dj?.x||LW/2):LW/2;
  const py=cGame==="flappy"?(fb?.by||LH/2):cGame==="geo"?(gd?.py||GD.FL):cGame==="doodle"?(dj?.y||LH/2):LH/2;
  PARTS.emit(px,py,{n:30,type:"sparks",s0:3,s1:10,up:2});
  PARTS.emit(px,py,{n:15,type:"fire",s0:2,s1:7});
  const bk=`${cGame}_${cLevel}`;
  const prev=store.bests?.[bk]||0;
+ const newBest=score>prev;
  store.bests={...store.bests,[bk]:Math.max(prev,score),[cGame]:Math.max(store.bests?.[cGame]||0,score)};
  saveStore();
- $("govl-icon").textContent="💀";
- $("govl-title").textContent="GAME OVER";
- $("govl-stats").innerHTML=`
-  <div class="gs-stat"><div class="sl">SCORE</div><div class="sv">${score}</div></div>
-  <div class="gs-stat"><div class="sl">BEST</div><div class="sv">${store.bests[bk]}</div></div>
-  ${sessionCoins>0?`<div class="gs-stat gold"><div class="sl">EARNED</div><div class="sv">🪙${sessionCoins}</div></div>`:""}`;
- $("govl-stats").classList.remove("hidden");
- $("govl-btn").textContent="↺  RETRY";
- $("govl").classList.remove("hidden");
+ // brief cinematic delay — let particles/shake play out first
+ setTimeout(()=>{
+   $("govl-icon").textContent=newBest?"🏆":"💀";
+   $("govl-title").textContent=newBest?"NEW BEST!":"GAME OVER";
+   $("govl-title").style.color=newBest?"var(--gold)":"var(--pink)";
+   $("govl-title").style.textShadow=newBest?"0 0 18px var(--gold)":"0 0 18px var(--pink)";
+   $("govl-stats").innerHTML=`
+    <div class="gs-stat"><div class="sl">SCORE</div><div class="sv">${score}</div></div>
+    <div class="gs-stat${newBest?" gold":""}"><div class="sl">BEST</div><div class="sv">${store.bests[bk]}</div></div>
+    ${sessionCoins>0?`<div class="gs-stat gold"><div class="sl">EARNED</div><div class="sv">🪙${sessionCoins}</div></div>`:""}`;
+   $("govl-stats").classList.remove("hidden");
+   $("govl-btn").textContent="↺  RETRY";
+   const govl=$("govl");
+   govl.classList.remove("hidden","go-enter");
+   void govl.offsetWidth;
+   govl.classList.add("go-enter");
+   govl.classList.remove("hidden");
+ },420);
 }
 
 /* ── AUDIO ENGINE ── */
@@ -632,7 +689,7 @@ const SFX=new AudioEngine();
 
 /* ── SCREEN SHAKE ── */
 let _shakePow=0,_shakeX=0,_shakeY=0;
-function shake(p){_shakePow=Math.max(_shakePow,p);}
+function shake(p){_shakePow=Math.max(_shakePow,p);hitStop(Math.round(p/3));}
 function _applyShake(){
  if(_shakePow<0.1){_shakeX=_shakeY=_shakePow=0;return;}
  _shakeX=(Math.random()-.5)*_shakePow*2;
@@ -1669,9 +1726,9 @@ function resetDoodle(){
   };
   dj.vy=-18;
 }
-function djShift(d){if(phase==="playing")dj.vx=d*4.5;}
+function djShift(d){if(SM.is('playing'))dj.vx=d*4.5;}
 function djShoot(){
-  if(dj.shootCool>0||phase!=="playing")return;
+  if(dj.shootCool>0||!SM.is('playing'))return;
   SFX.score();dj.shootCool=18;
   dj.bullets.push({x:dj.x,y:dj.y-20,vy:-9,alive:true});
 }
@@ -1975,18 +2032,26 @@ function openGame(gameId,levelId){
   const rFn=gameId==="doodle"?"doodleMove(1)":"templeShift(1)";
   dp.innerHTML=`<button class="dplr" onpointerdown="${lFn}">◀</button><button class="dplr" onpointerdown="${rFn}">▶</button>`;
  }
- // show game screen
+ // show game screen with cinematic curtain enter
  document.getElementById("s-hub").style.display="";
  ["s-hub","s-games","s-shop","s-profile"].forEach(id=>$(id)?.classList.add("hidden"));
  $("nav").style.display="none";
+ const curtain=$("gs-curtain");
+ curtain.classList.remove("open"); // ensure curtain is closed (opaque) before showing
  $("gs").classList.remove("hidden");
  resizeCvs();
+ // double-rAF: wait for layout, then fade curtain open
+ requestAnimationFrame(()=>requestAnimationFrame(()=>curtain.classList.add("open")));
 }
 
 function startGame(){
  cancelAnimationFrame(rafId);
- phase="playing";score=0;sessionCoins=0;
- setScore(0);$("ghcoin").style.display="none";$("ghcoin").textContent="";
+ // force idle → playing via SM (handles retry from 'dead' too)
+ phase="idle";SM.go('playing');
+ score=0;sessionCoins=0;
+ _scoreDisplay=0;_scoreTarget=0;_hitStopFrames=0;_lastFrameT=0;
+ $("ghsc").textContent="0";
+ $("ghcoin").style.display="none";$("ghcoin").textContent="";
  $("govl").classList.add("hidden");
  resizeCvs();
  if(cGame==="flappy")resetFlappy();
@@ -1994,29 +2059,55 @@ function startGame(){
  if(cGame==="temple")resetTemple();
  if(cGame==="snake") resetSnake();
  if(cGame==="doodle")resetDoodle();
- function loop(){
-  if(phase!=="playing")return;
+ EVT.emit('gamestart',{game:cGame,level:cLevel});
+ function loop(ts){
+  rafId=requestAnimationFrame(loop); // schedule first — survives errors
+  if(!SM.is('playing'))return;
+  // 60fps cap — skip frames on 90/120Hz displays so physics stays consistent
+  if(_lastFrameT&&ts-_lastFrameT<15)return;
+  _lastFrameT=ts;
+  // hitstop — freeze the world for N frames on hard impacts
+  if(_hitStopFrames>0){_hitStopFrames--;return;}
+  // score roll — smoothly count up displayed score toward target
+  if(_scoreDisplay!==_scoreTarget){
+   _scoreDisplay=Math.min(_scoreDisplay+Math.max(1,Math.ceil((_scoreTarget-_scoreDisplay)*.3)),_scoreTarget);
+   $("ghsc").textContent=_scoreDisplay;
+  }
   CTX.clearRect(0,0,LW,LH);
   _applyShake();
   CTX.save();CTX.translate(_shakeX,_shakeY);
-  if(cGame==="flappy")tickFlappy();
-  if(cGame==="geo")   tickGeo();
-  if(cGame==="temple")tickTemple();
-  if(cGame==="snake") tickSnake();
-  if(cGame==="doodle")tickDoodle();
+  try{
+   if(cGame==="flappy")tickFlappy();
+   if(cGame==="geo")   tickGeo();
+   if(cGame==="temple")tickTemple();
+   if(cGame==="snake") tickSnake();
+   if(cGame==="doodle")tickDoodle();
+  }catch(err){
+   console.error('[ARCADE] loop error:',err);
+   EVT.emit('loopError',err);
+   // don't crash — game stays running, log to console
+  }
   CTX.restore();
-  rafId=requestAnimationFrame(loop);
  }
  rafId=requestAnimationFrame(loop);
 }
 
 function leaveGame(){
- cancelAnimationFrame(rafId);phase="idle";cGame="";
- $("gs").classList.add("hidden");
- $("nav").style.display="";
- // restore last nav screen
- $("s-"+curScr).classList.remove("hidden");
- updCoins();
+ cancelAnimationFrame(rafId);
+ SM.go('dead');phase='idle'; // stop the loop immediately
+ const curtain=$("gs-curtain");
+ curtain.style.pointerEvents="all"; // block clicks during exit
+ curtain.classList.remove("open"); // curtain fades in (black)
+ setTimeout(()=>{
+  cGame="";
+  $("gs").classList.add("hidden");
+  curtain.style.pointerEvents="";
+  $("nav").style.display="";
+  const s=$("s-"+curScr);
+  s.classList.remove("hidden");
+  s.classList.remove("scr-enter");void s.offsetWidth;s.classList.add("scr-enter");
+  updCoins();
+ },230);
 }
 
 /* ════════════════════════════════════════════
@@ -2025,7 +2116,7 @@ function leaveGame(){
 let ptx=0,pty=0;
 document.addEventListener("keydown",e=>{
  if(!["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))return;
- e.preventDefault();if(phase!=="playing")return;
+ e.preventDefault();if(!SM.is('playing'))return;
  if(cGame==="flappy"&&(e.code==="Space"||e.code==="ArrowUp"))flap();
  if(cGame==="geo"&&(e.code==="Space"||e.code==="ArrowUp"))geoJump();
  if(cGame==="temple"){if(e.code==="ArrowLeft")templeShift(-1);if(e.code==="ArrowRight")templeShift(1);}
@@ -2033,11 +2124,11 @@ document.addEventListener("keydown",e=>{
  if(cGame==="snake"){const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};if(m[e.code])snDir(m[e.code]);}
 });
 document.getElementById("cwrap").addEventListener("pointerdown",e=>{
- ptx=e.clientX;pty=e.clientY;if(phase!=="playing")return;
+ ptx=e.clientX;pty=e.clientY;if(!SM.is('playing'))return;
  if(cGame==="flappy")flap();if(cGame==="geo")geoJump();
 });
 document.getElementById("cwrap").addEventListener("pointerup",e=>{
- if(phase!=="playing")return;
+ if(!SM.is('playing'))return;
  const dx=e.clientX-ptx,dy=e.clientY-pty;
  if(Math.sqrt(dx*dx+dy*dy)<12)return;
  if(cGame==="temple"){if(Math.abs(dx)>16)templeShift(dx<0?-1:1);}
