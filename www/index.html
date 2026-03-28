@@ -1408,21 +1408,36 @@ function tickTemple(){
 }
 
 /* ══════════════════════════════════════════════
-   ④ NEON SNAKE  (unchanged – already solid)
+   ④ VIPER — REX the neon serpent
+   Food types: normal🍎(+1), bonus⭐(+3 rare), poison☠️(shrink+flash)
+   Combo: 3 foods without turning → 2x points for 5s
+   Background evolves as snake grows (brighter grid → wall glow)
 ══════════════════════════════════════════════ */
 const SNC=22;
 let sn={};
 function resetSnake(){
   const cols=Math.floor(LW/SNC),rows=Math.floor(LH/SNC);
   const sx=Math.floor(cols/2),sy=Math.floor(rows/2);
-  sn={body:[{x:sx,y:sy},{x:sx-1,y:sy},{x:sx-2,y:sy}],dir:{x:1,y:0},next:{x:1,y:0},food:null,pulses:[],cols,rows,tick:0};
-  snFood();
+  sn={body:[{x:sx,y:sy},{x:sx-1,y:sy},{x:sx-2,y:sy}],
+    dir:{x:1,y:0},next:{x:1,y:0},
+    food:null,bonus:null,poison:null,
+    pulses:[],cols,rows,tick:0,
+    combo:0,comboTimer:0,lastTurnLen:0,
+    poisonFlash:0};
+  snSpawnFood();
 }
-function snFood(){
+function snRandPos(){
   const{cols,rows,body}=sn;let p;
   do{p={x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};}
   while(body.some(b=>b.x===p.x&&b.y===p.y));
-  sn.food=p;
+  return p;
+}
+function snSpawnFood(){
+  sn.food=snRandPos();
+  // 20% chance bonus, 18% chance poison (mutually exclusive)
+  const r=Math.random();
+  sn.bonus=r<0.20?snRandPos():null;
+  sn.poison=r>0.82?snRandPos():null;
 }
 function snDir(d){
   if(d[0]!==0&&sn.dir.x!==0)return;
@@ -1431,12 +1446,32 @@ function snDir(d){
 }
 function tickSnake(){
   const C=SNC;sn.tick++;
+  const len=sn.body.length;
   const fps=Math.max(3,9-Math.floor(score/5));
-  CTX.fillStyle='#03050c';CTX.fillRect(0,0,LW,LH);
-  // grid
-  CTX.strokeStyle='rgba(0,232,154,0.045)';CTX.lineWidth=.5;
+  if(sn.comboTimer>0)sn.comboTimer--;
+  if(sn.poisonFlash>0)sn.poisonFlash--;
+
+  // Background — evolves with snake length
+  const bgInt=Math.min(len/40,1);
+  CTX.fillStyle=`rgb(${3+Math.round(bgInt*6)},${5},${12+Math.round(bgInt*8)})`;
+  CTX.fillRect(0,0,LW,LH);
+  // scanlines at length > 20
+  if(len>20){
+    CTX.fillStyle=`rgba(0,0,0,${0.06+bgInt*0.08})`;
+    for(let y=0;y<LH;y+=4)CTX.fillRect(0,y,LW,2);
+  }
+  // grid — brightens as snake grows
+  const gridA=0.045+bgInt*0.06;
+  const rexSkin=SHOP_D.find(s=>s.id===(store.equipped?.skin_snake||'rex_default'))||SHOP_D.find(s=>s.id==='rex_default');
+  const rHd=rexSkin.headCol||'#00e89a',rBd=rexSkin.bodyCol||'#00c882',rGl=rexSkin.glow||'#00e89a';
+  CTX.strokeStyle=rGl+Math.round(gridA*255).toString(16).padStart(2,'0');CTX.lineWidth=.5;
   for(let x=0;x<=LW;x+=C){CTX.beginPath();CTX.moveTo(x,0);CTX.lineTo(x,LH);CTX.stroke();}
   for(let y=0;y<=LH;y+=C){CTX.beginPath();CTX.moveTo(0,y);CTX.lineTo(LW,y);CTX.stroke();}
+  // wall danger glow when long
+  if(len>30){const dg=Math.min((len-30)/20,1);glow('#ff0000',dg*14);CTX.strokeStyle=`rgba(255,0,0,${dg*0.35})`;CTX.lineWidth=3;CTX.strokeRect(0,0,LW,LH);ng();}
+
+  // poison flash overlay
+  if(sn.poisonFlash>0){CTX.fillStyle=`rgba(180,0,200,${(sn.poisonFlash/20)*0.25})`;CTX.fillRect(0,0,LW,LH);}
 
   if(sn.tick%fps===0){
     sn.dir={...sn.next};
@@ -1444,22 +1479,57 @@ function tickSnake(){
     if(h.x<0||h.x>=sn.cols||h.y<0||h.y>=sn.rows){gameOver();return;}
     if(sn.body.slice(2).some(b=>b.x===h.x&&b.y===h.y)){gameOver();return;}
     sn.body.unshift(h);
-    if(h.x===sn.food.x&&h.y===sn.food.y){setScore(score+1);haptic();snFood();sn.pulses.push({x:h.x,y:h.y,a:1});}
-    else sn.body.pop();
+    let ate=false;
+    // normal food
+    if(h.x===sn.food.x&&h.y===sn.food.y){
+      const pts=sn.comboTimer>0?2:1;setScore(score+pts);haptic();SFX.eat();
+      sn.pulses.push({x:h.x,y:h.y,a:1,col:rGl});
+      PARTS.emit(h.x*C+C/2,h.y*C+C/2,{n:10,type:'sparks',colors:[rGl,'#fff'],s0:2,s1:6});
+      sn.combo++;if(sn.combo>=3){sn.comboTimer=180;toast(`COMBO ×2!`,true);}
+      snSpawnFood();ate=true;
+    }
+    // bonus food
+    else if(sn.bonus&&h.x===sn.bonus.x&&h.y===sn.bonus.y){
+      const pts=sn.comboTimer>0?6:3;setScore(score+pts);haptic();SFX.coin();
+      sn.pulses.push({x:h.x,y:h.y,a:1,col:'#ffc107'});
+      PARTS.emit(h.x*C+C/2,h.y*C+C/2,{n:16,type:'sparks',colors:['#ffc107','#fff','#ffee44'],s0:2,s1:8});
+      sn.combo++;if(sn.combo>=3){sn.comboTimer=180;toast(`COMBO ×2!`,true);}
+      snSpawnFood();ate=true;
+    }
+    // poison
+    else if(sn.poison&&h.x===sn.poison.x&&h.y===sn.poison.y){
+      haptic(40);SFX.hit();shake(10);sn.poisonFlash=20;
+      // shrink by 3 segments
+      for(let i=0;i<3&&sn.body.length>3;i++)sn.body.pop();
+      PARTS.emit(h.x*C+C/2,h.y*C+C/2,{n:14,type:'electric',colors:['#aa00ff','#cc44ff'],s0:2,s1:7});
+      sn.combo=0;sn.comboTimer=0;snSpawnFood();ate=true;
+    }
+    if(!ate){sn.body.pop();}
+    else{sn.lastTurnLen=sn.body.length;}
   }
 
   for(const p of sn.pulses){
     const r=C*(1-p.a)*3.5;
     if(r>0){const gr=CTX.createRadialGradient(p.x*C+C/2,p.y*C+C/2,0,p.x*C+C/2,p.y*C+C/2,r);
-      gr.addColorStop(0,`rgba(0,232,154,${p.a*0.45})`);gr.addColorStop(1,'transparent');
+      gr.addColorStop(0,(p.col||rGl)+Math.round(p.a*0.45*255).toString(16).padStart(2,'0'));gr.addColorStop(1,'transparent');
       CTX.fillStyle=gr;CTX.beginPath();CTX.arc(p.x*C+C/2,p.y*C+C/2,r,0,Math.PI*2);CTX.fill();}
     p.a-=0.055;
   }
   sn.pulses=sn.pulses.filter(p=>p.a>0);
 
-  const fp=sn.food,pulse=0.65+0.35*Math.sin(sn.tick*0.14);
-  glow('#ff0a6c',13*pulse);CTX.font=`${C*1.1|0}px serif`;
-  CTX.textAlign='left';CTX.textBaseline='top';CTX.fillText('🍎',fp.x*C,fp.y*C);ng();
+  // draw food items
+  const pulse=0.65+0.35*Math.sin(sn.tick*0.14);
+  if(sn.food){glow('#ff4444',13*pulse);CTX.font=`${C*1.05|0}px serif`;CTX.textAlign='left';CTX.textBaseline='top';CTX.fillText('🍎',sn.food.x*C,sn.food.y*C);ng();}
+  if(sn.bonus){const bp=0.7+0.3*Math.sin(sn.tick*0.2);glow('#ffc107',15*bp);CTX.font=`${C*1.1|0}px serif`;CTX.fillText('⭐',sn.bonus.x*C,sn.bonus.y*C);ng();}
+  if(sn.poison){const pp=0.6+0.4*Math.sin(sn.tick*0.18);glow('#aa00ff',12*pp);CTX.font=`${C|0}px serif`;CTX.fillText('☠️',sn.poison.x*C,sn.poison.y*C);ng();}
+
+  // combo HUD
+  if(sn.comboTimer>0){
+    CTX.save();CTX.globalAlpha=Math.min(1,sn.comboTimer/30);
+    CTX.fillStyle='rgba(0,0,0,0.4)';rr(LW/2-36,8,72,22,6);CTX.fill();
+    CTX.fillStyle='#ffc107';CTX.font='bold 11px "Exo 2",sans-serif';CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.fillText(`⚡ COMBO ×2`,LW/2,19);CTX.restore();
+  }
 
   // REX skin
   const rexSkin=SHOP_D.find(s=>s.id===(store.equipped?.skin_snake||'rex_default'))||SHOP_D.find(s=>s.id==='rex_default');
